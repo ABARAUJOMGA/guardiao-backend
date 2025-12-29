@@ -68,6 +68,9 @@ app.post("/trackings", async (req, res) => {
       return res.status(400).json({ error: "Dados obrigatórios" });
     }
 
+
+
+    
     const { count } = await supabase
       .from("trackings")
       .select("*", { count: "exact", head: true })
@@ -97,6 +100,33 @@ app.post("/trackings", async (req, res) => {
   }
 });
 
+
+/* =========================
+   LIST TRACKINGS
+========================= */
+app.get("/trackings/:user_id", async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const { data, error } = await supabase
+      .from("trackings")
+      .select("*")
+      .eq("user_id", user_id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error("Erro em GET /trackings:", err);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+
+
 /* =========================
    RUN MONITOR (JOB)
 ========================= */
@@ -120,4 +150,41 @@ app.post("/run-monitor", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Guardião API rodando na porta ${PORT}`);
+});
+
+
+app.post("/events", async (req, res) => {
+  const { type, payload } = req.body;
+
+  await supabase.from("events").insert([{
+    type,
+    payload
+  }]);
+
+  res.json({ ok: true });
+});
+
+
+/* =========================
+   LIST TRACKINGS
+========================= */
+app.get("/trackings/:user_id", async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const { data, error } = await supabase
+      .from("trackings")
+      .select("*")
+      .eq("user_id", user_id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error("Erro em GET /trackings:", err);
+    res.status(500).json({ error: "Erro interno" });
+  }
 });
