@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { rodarMonitoramento } from "./monitor.js";
 import { createClient } from "@supabase/supabase-js";
 
 const app = express();
@@ -123,14 +124,17 @@ app.delete("/trackings/:id", async (req, res) => {
 /* =========================
    START SERVER
 ========================= */
+app.post("/run-monitor", async (req, res) => {
+  try {
+    await rodarMonitoramento();
+    res.json({ status: "Monitoramento executado" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "error" });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Guardião API rodando na porta ${PORT}`);
-});
-
-import { rodarMonitoramento } from "./monitor.js";
-
-app.post("/run-monitor", async (req, res) => {
-  await rodarMonitoramento();
-  res.json({ status: "Monitoramento executado" });
 });
