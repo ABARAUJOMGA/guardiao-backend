@@ -127,3 +127,10 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Guardião API rodando na porta ${PORT}`);
 });
+
+import { rodarMonitoramento } from "./monitor.js";
+
+app.post("/run-monitor", async (req, res) => {
+  await rodarMonitoramento();
+  res.json({ status: "Monitoramento executado" });
+});
