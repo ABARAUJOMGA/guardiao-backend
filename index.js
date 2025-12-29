@@ -164,27 +164,3 @@ app.post("/events", async (req, res) => {
   res.json({ ok: true });
 });
 
-
-/* =========================
-   LIST TRACKINGS
-========================= */
-app.get("/trackings/:user_id", async (req, res) => {
-  try {
-    const { user_id } = req.params;
-
-    const { data, error } = await supabase
-      .from("trackings")
-      .select("*")
-      .eq("user_id", user_id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      return res.status(400).json({ error: error.message });
-    }
-
-    res.json(data);
-  } catch (err) {
-    console.error("Erro em GET /trackings:", err);
-    res.status(500).json({ error: "Erro interno" });
-  }
-});
