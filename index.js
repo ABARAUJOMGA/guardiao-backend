@@ -131,22 +131,21 @@ app.get("/trackings/:user_id", async (req, res) => {
    RUN MONITOR (JOB)
 ========================= */
 app.post("/run-monitor", async (req, res) => {
-  console.log("▶ /run-monitor acionado - INÍCIO");
+  try {
+    console.log("▶ /run-monitor acionado - INÍCIO");
 
-res.json({ status: "endpoint respondeu" });
+    await rodarMonitoramento();
 
-console.log("▶ /run-monitor respondeu para o cliente");
+    console.log("✔ Monitoramento executado com sucesso");
+    console.log("▶ /run-monitor FINALIZADO");
 
-try {
-  await rodarMonitoramento();
-  console.log("✔ Monitoramento executado com sucesso");
-} catch (err) {
-  console.error("❌ Erro no monitoramento:", err);
-}
-
-console.log("▶ /run-monitor FINALIZADO");
-
+    res.json({ status: "Monitoramento executado" });
+  } catch (err) {
+    console.error("❌ Erro no monitoramento:", err);
+    res.status(500).json({ error: "Erro ao executar monitoramento" });
+  }
 });
+
 
 
 /* =========================
