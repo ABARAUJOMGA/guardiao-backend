@@ -131,7 +131,11 @@ app.get("/trackings/:user_id", async (req, res) => {
    RUN MONITOR (JOB)
 ========================= */
 app.post("/run-monitor", async (req, res) => {
-  console.log("▶ /run-monitor acionado");
+  console.log("▶ /run-monitor acionado - INÍCIO");
+
+  res.json({ status: "endpoint respondeu" });
+
+  console.log("▶ /run-monitor respondeu para o cliente");
 
   try {
     await rodarMonitoramento();
@@ -140,9 +144,9 @@ app.post("/run-monitor", async (req, res) => {
     console.error("❌ Erro no monitoramento:", err);
   }
 
-  // SEMPRE responde 200 no MVP
-  res.json({ status: "Monitoramento executado" });
+  console.log("▶ /run-monitor FINALIZADO");
 });
+
 
 /* =========================
    START SERVER
