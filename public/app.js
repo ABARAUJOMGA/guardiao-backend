@@ -1,5 +1,6 @@
 // ===== CONFIG =====
-const API_BASE_URL = ""; // same-origin (evita CORS)
+const API_BASE_URL = ""; // same-origin
+const PLAN_LINK = "https://mpago.li/1XoZc56";
 
 // ===== STATE =====
 let pendingTrackingCode = null;
@@ -18,6 +19,7 @@ const userEmail = document.getElementById("userEmail");
 const confirmIdentify = document.getElementById("confirmIdentify");
 const cancelIdentify = document.getElementById("cancelIdentify");
 const goToPlan = document.getElementById("goToPlan");
+const subscribePlan = document.getElementById("subscribePlan");
 
 // suporte
 const supportBtn = document.getElementById("supportBtn");
@@ -28,7 +30,16 @@ const supportName = document.getElementById("supportName");
 const supportEmail = document.getElementById("supportEmail");
 const supportMessage = document.getElementById("supportMessage");
 
-// ===== ABRIR MODAL =====
+/* ===== CTA PLANO ===== */
+goToPlan.onclick = () => {
+  window.location.href = PLAN_LINK;
+};
+
+subscribePlan.onclick = () => {
+  window.location.href = PLAN_LINK;
+};
+
+/* ===== ABRIR MODAL ===== */
 startForm.addEventListener("submit", (e) => {
   e.preventDefault();
 
@@ -39,30 +50,28 @@ startForm.addEventListener("submit", (e) => {
   }
 
   pendingTrackingCode = code;
-
   identifyStep.classList.remove("hidden");
   successStep.classList.add("hidden");
   identifyModal.classList.remove("hidden");
 });
 
-// ===== CANCELAR =====
+/* ===== CANCELAR ===== */
 cancelIdentify.onclick = () => {
   identifyModal.classList.add("hidden");
   pendingTrackingCode = null;
 };
 
-// ===== CONFIRMAR =====
+/* ===== CONFIRMAR ===== */
 confirmIdentify.onclick = async () => {
-  const name = userName.value.trim();
   const email = userEmail.value.trim();
 
-  if (!name || !email) {
-    alert("Preencha nome e email.");
+  if (!email) {
+    alert("Preencha o email.");
     return;
   }
 
   try {
-    const userRes = await fetch(`${API_BASE_URL}/users`, {
+    const userRes = await fetch(`/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email })
@@ -70,7 +79,7 @@ confirmIdentify.onclick = async () => {
 
     const user = await userRes.json();
 
-    const trackRes = await fetch(`${API_BASE_URL}/trackings`, {
+    const trackRes = await fetch(`/trackings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -88,17 +97,12 @@ confirmIdentify.onclick = async () => {
     identifyStep.classList.add("hidden");
     successStep.classList.remove("hidden");
   } catch (err) {
-    alert("Erro de conexão. Tente novamente.");
+    alert("Erro de conexão.");
     console.error(err);
   }
 };
 
-// ===== CTA PLANO =====
-goToPlan.onclick = () => {
-  window.location.href = "LINK_DO_MERCADO_PAGO_AQUI";
-};
-
-// ===== SUPORTE =====
+/* ===== SUPORTE ===== */
 supportBtn.onclick = () => supportModal.classList.remove("hidden");
 closeSupport.onclick = () => supportModal.classList.add("hidden");
 
@@ -109,7 +113,7 @@ supportModal.querySelector(".modal-overlay").onclick = () => {
 supportForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  await fetch(`${API_BASE_URL}/events`, {
+  await fetch(`/events`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -122,6 +126,6 @@ supportForm.addEventListener("submit", async (e) => {
     })
   });
 
-  alert("Chamado enviado. Retornaremos em até 24h úteis.");
+  alert("Chamado enviado.");
   supportModal.classList.add("hidden");
 });
