@@ -8,6 +8,14 @@ import { rodarMonitoramento } from "./monitor.js";
 import { enviarEmail } from "./mailer.js";
 import { adminAuth } from "./adminAuth.js";
 
+
+const allowedOrigins = [
+  "https://guardiaorastreamento.com.br",
+  "https://www.guardiaorastreamento.com.br",
+  "null"
+];
+
+
 /* =========================
    APP INIT
 ========================= */
