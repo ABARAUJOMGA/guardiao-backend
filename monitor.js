@@ -29,7 +29,8 @@ export async function rodarMonitoramento() {
   const { data: trackings, error: trackingError } = await supabase
     .from("trackings")
     .select("*")
-    .eq("status", "active");
+    .eq("status", "active")
+    .is("delivered_at", null);
 
   if (trackingError) {
     console.error("🔴 Erro ao buscar trackings:", trackingError);
