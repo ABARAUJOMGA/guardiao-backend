@@ -9,7 +9,7 @@ import { enviarEmail } from "./mailer.js";
 import { adminAuth } from "./adminAuth.js";
 
 /* =========================
-   CONFIGURAÇÃO DE PATHS
+   PATHS E APP INIT
 ========================= */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,23 +18,28 @@ const app = express();
 app.set("trust proxy", 1);
 
 /* =========================
-   1. SEGURANÇA (CSP) - CORREÇÃO DO BLOQUEIO
+   CSP (VERSÃO CORRETA E COMPATÍVEL)
 ========================= */
 app.use((req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; " +
-    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; " +
-    "connect-src 'self' https://guardiao-backend-production.up.railway.app https://*.supabase.co; " +
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-    "font-src 'self' data: https://fonts.gstatic.com; " +
-    "img-src 'self' data:;"
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "img-src 'self' data:",
+      "connect-src 'self' https://guardiao-backend-production.up.railway.app https://*.supabase.co",
+      "frame-src 'none'",
+      "object-src 'none'",
+      "base-uri 'self'"
+    ].join("; ")
   );
   next();
 });
 
 /* =========================
-   2. MIDDLEWARES E CORS
+   MIDDLEWARES
 ========================= */
 app.use(express.json());
 
@@ -62,57 +67,85 @@ app.use(
 app.options("*", cors());
 
 /* =========================
-   3. ARQUIVOS ESTÁTICOS (FRONTEND)
+   FRONTEND ESTÁTICO
 ========================= */
-// Serve os arquivos da pasta public que você criou
 app.use(express.static(path.join(__dirname, "public")));
 
 /* =========================
-   4. CONEXÃO SUPABASE
+   SUPABASE
 ========================= */
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error("❌ Variáveis do Supabase não configuradas");
+}
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 /* =========================
-   5. ROTAS DE USUÁRIOS E PLANOS
+   HEALTH CHECK
 ========================= */
+app.get("/health", (req, res) => {
+  res.json({ status: "Guardião API online" });
+});
 
-app.get("/health", (req, res) => res.json({ status: "online" }));
-
+/* =========================
+   USERS
+========================= */
 app.post("/users", async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: "Email obrigatório" });
 
-  const { data: existing } = await supabase.from("users").select("*").eq("email", email).single();
+  const { data: existing } = await supabase
+    .from("users")
+    .select("*")
+    .eq("email", email)
+    .single();
+
   if (existing) return res.json(existing);
 
-  const { data, error } = await supabase.from("users").insert([{ email }]).select().single();
+  const { data, error } = await supabase
+    .from("users")
+    .insert([{ email }])
+    .select()
+    .single();
+
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
 
 /* =========================
-   6. ROTAS DE RASTREAMENTO (TRACKINGS)
+   TRACKINGS (CRIAR)
 ========================= */
-
 app.post("/trackings", async (req, res) => {
   const { user_id, tracking_code } = req.body;
+  if (!user_id || !tracking_code) {
+    return res.status(400).json({ error: "Dados obrigatórios" });
+  }
 
-  // Verifica limite do plano
-  const { data: user } = await supabase.from("users").select("plan").eq("id", user_id).single();
+  const { data: user } = await supabase
+    .from("users")
+    .select("plan")
+    .eq("id", user_id)
+    .single();
+
   const limit = user?.plan === "essential" ? 50 : 1;
 
-  const { count } = await supabase.from("trackings")
+  const { count } = await supabase
+    .from("trackings")
     .select("*", { count: "exact", head: true })
     .eq("user_id", user_id)
     .eq("status", "active");
 
   if (count >= limit) {
-    return res.status(403).json({ error: `Limite de ${limit} envio(s) atingido para seu plano.` });
+    return res.status(403).json({
+      error: `Seu plano permite até ${limit} monitoramentos ativos`
+    });
   }
 
-  const { data, error } = await supabase.from("trackings")
+  const { data, error } = await supabase
+    .from("trackings")
     .insert([{ user_id, tracking_code, status: "active" }])
     .select()
     .single();
@@ -121,17 +154,128 @@ app.post("/trackings", async (req, res) => {
   res.json(data);
 });
 
-// Execução manual do monitor (Job)
-app.post("/run-monitor", async (req, res) => {
-  console.log("🚀 Monitoramento solicitado via API");
-  await rodarMonitoramento();
-  res.json({ status: "Monitoramento finalizado" });
+/* =========================
+   TRACKINGS (LISTAR DO USUÁRIO)
+========================= */
+app.get("/trackings/:user_id", async (req, res) => {
+  const { user_id } = req.params;
+
+  const { data, error } = await supabase
+    .from("trackings")
+    .select("*")
+    .eq("user_id", user_id)
+    .order("created_at", { ascending: false });
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
 });
 
 /* =========================
-   7. EVENTOS E SUPORTE
+   JOB MANUAL
 ========================= */
+app.post("/run-monitor", async (req, res) => {
+  await rodarMonitoramento();
+  res.json({ status: "Monitoramento executado" });
+});
 
+/* =========================
+   ADMIN — LISTAR TRACKINGS
+========================= */
+app.get("/admin/trackings", adminAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from("trackings")
+    .select("*, users(email)")
+    .is("delivered_at", null)
+    .order("created_at", { ascending: false });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+/* =========================
+   ADMIN — CHECK MANUAL
+========================= */
+app.post("/admin/trackings/:id/check", adminAuth, async (req, res) => {
+  const { check_type } = req.body;
+
+  await supabase.from("tracking_checks").insert([{
+    tracking_id: req.params.id,
+    check_type
+  }]);
+
+  res.json({ ok: true });
+});
+
+/* =========================
+   ADMIN — EXCEPTION
+========================= */
+app.post("/admin/trackings/:id/exception", adminAuth, async (req, res) => {
+  const { exception_type, severity, status_raw } = req.body;
+
+  await supabase.from("tracking_exceptions").insert([{
+    tracking_id: req.params.id,
+    exception_type,
+    severity,
+    status_raw
+  }]);
+
+  await supabase.from("trackings").update({
+    status: "exception",
+    flow_stage: "exception"
+  }).eq("id", req.params.id);
+
+  res.json({ ok: true });
+});
+
+/* =========================
+   ADMIN — SEND EMAIL
+========================= */
+app.post("/admin/trackings/:id/send-email", adminAuth, async (req, res) => {
+  const trackingId = req.params.id;
+
+  const { data: tracking } = await supabase
+    .from("trackings")
+    .select("tracking_code, alert_sent, last_status_raw, users(email)")
+    .eq("id", trackingId)
+    .single();
+
+  if (!tracking || tracking.alert_sent) {
+    return res.status(409).json({ error: "Email já enviado ou inválido" });
+  }
+
+  await enviarEmail({
+    to: tracking.users.email,
+    subject: "⚠️ Atenção: encomenda requer ação",
+    text: `
+Código: ${tracking.tracking_code}
+Status: ${tracking.last_status_raw || "Não informado"}
+
+Plano Essencial permite até 50 monitoramentos ativos.
+    `
+  });
+
+  await supabase.from("trackings")
+    .update({ alert_sent: true })
+    .eq("id", trackingId);
+
+  res.json({ ok: true });
+});
+
+/* =========================
+   ADMIN — DELIVERED
+========================= */
+app.post("/admin/trackings/:id/delivered", adminAuth, async (req, res) => {
+  await supabase.from("trackings").update({
+    status: "delivered",
+    delivered_at: new Date().toISOString()
+  }).eq("id", req.params.id);
+
+  res.json({ ok: true });
+});
+
+/* =========================
+   EVENTS (SUPORTE)
+========================= */
 app.post("/events", async (req, res) => {
   const { type, payload } = req.body;
 
@@ -140,8 +284,14 @@ app.post("/events", async (req, res) => {
   if (type === "support_request") {
     await enviarEmail({
       to: "atendimento@abaraujo.com",
-      subject: "📩 Novo chamado de suporte — Guardião",
-      text: `Novo chamado recebido:\n\nNome: ${payload.name}\nEmail: ${payload.email}\n\nMensagem:\n${payload.message}`
+      subject: "📩 Novo chamado — Guardião",
+      text: `
+Nome: ${payload.name}
+Email: ${payload.email}
+
+Mensagem:
+${payload.message}
+      `
     });
   }
 
@@ -149,51 +299,8 @@ app.post("/events", async (req, res) => {
 });
 
 /* =========================
-   8. ÁREA ADMINISTRATIVA (COMPLETA)
+   FRONTEND FALLBACK
 ========================= */
-
-// Listar trackings ativos para o admin
-app.get("/admin/trackings", adminAuth, async (req, res) => {
-  const { data, error } = await supabase
-    .from("trackings")
-    .select("*, users(email)")
-    .is("delivered_at", null)
-    .order("created_at", { ascending: false });
-
-  if (error) return res.status(400).json(error);
-  res.json(data);
-});
-
-// Atualizar status para entregue
-app.post("/admin/trackings/:id/delivered", adminAuth, async (req, res) => {
-  const { error } = await supabase
-    .from("trackings")
-    .update({
-      status: "delivered",
-      delivered_at: new Date().toISOString()
-    })
-    .eq("id", req.params.id);
-
-  if (error) return res.status(400).json(error);
-  res.json({ ok: true });
-});
-
-// Marcar alerta como enviado
-app.post("/admin/trackings/:id/ack-alert", adminAuth, async (req, res) => {
-  const { error } = await supabase
-    .from("trackings")
-    .update({ alert_sent: true })
-    .eq("id", req.params.id);
-
-  if (error) return res.status(400).json(error);
-  res.json({ ok: true });
-});
-
-/* =========================
-   9. FALLBACK FRONTEND (RESOLVE 404)
-========================= */
-
-// Esta rota deve ser a ÚLTIMA. Ela entrega o index.html para qualquer rota não mapeada.
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
@@ -203,9 +310,5 @@ app.get("*", (req, res) => {
 ========================= */
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`
-  ✅ SERVIDOR ONLINE: Porta ${PORT}
-  📂 Pasta estática: ${path.join(__dirname, "public")}
-  🌐 Domínio: https://guardiaorastreamento.com.br
-  `);
+  console.log(`🚀 Guardião rodando na porta ${PORT}`);
 });
