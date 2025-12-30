@@ -14,6 +14,8 @@ import { adminAuth } from "./adminAuth.js";
 const app = express();
 app.set("trust proxy", 1);
 
+app.use(express.static(path.join(__dirname, "public")));
+
 app.use((req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
@@ -33,6 +35,7 @@ app.use((req, res, next) => {
 const allowedOrigins = [
   "https://guardiaorastreamento.com.br",
   "https://www.guardiaorastreamento.com.br",
+  "https://guardiao-backend-production.up.railway.app", // Adicione esta linha
   "null" // file:// local
 ];
 

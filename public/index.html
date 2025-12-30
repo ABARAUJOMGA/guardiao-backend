@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Guardião de Rastreamento</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<section id="home">
+  <div class="container">
+
+    <h1>Descubra problemas na entrega antes do seu cliente</h1>
+
+    <p class="subtitle">
+      O Guardião monitora seus envios e avisa quando algo sai do normal,
+      antes que o cliente reclame.
+    </p>
+
+    <div class="stats">
+      <div class="stat">
+        <strong>Aguardando retirada</strong>
+        <span>O pedido fica parado e depois vira devolução.</span>
+      </div>
+      <div class="stat">
+        <strong>Falha na entrega</strong>
+        <span>O cliente não é encontrado e ninguém te avisa.</span>
+      </div>
+      <div class="stat">
+        <strong>Custo invisível</strong>
+        <span>Retrabalho, estorno e desgaste com o cliente.</span>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta-box">
+      <h2>Teste grátis com 1 envio</h2>
+
+      <p class="hint">
+        Monitoramento exclusivo para <strong>Correios</strong> (por enquanto).
+      </p>
+
+      <form id="startTrackingForm">
+        <input
+          type="text"
+          id="trackingCode"
+          placeholder="Digite o código de rastreamento"
+          required
+        />
+        <button type="submit">Monitorar envio</button>
+      </form>
+
+      <p class="plan-info">
+        Plano gratuito: 1 envio<br />
+        Plano Essencial: até 50 envios simultâneos<br />
+        <strong>R$ 99,90 / mês</strong>
+      </p>
+
+      <button class="subscribe-btn">Assinar Plano Essencial</button>
+    </div>
+
+    <!-- SUPORTE -->
+    <div class="support">
+      <button id="supportBtn">Falar com o suporte</button>
+    </div>
+
+    <p class="footer">
+      Produto em beta · Suporte em horário comercial
+    </p>
+
+  </div>
+</section>
+
+<!-- MODAL IDENTIFICAÇÃO -->
+<div id="identifyModal" class="modal hidden">
+  <div class="modal-overlay"></div>
+
+  <div class="modal-box">
+
+    <!-- ESTADO: IDENTIFICAÇÃO -->
+    <div id="identifyStep" class="modal-step">
+      <h3>Ativar monitoramento</h3>
+
+      <p class="modal-text">
+        Precisamos do seu nome e email para avisar caso algo
+        saia do normal com este envio.
+      </p>
+
+      <div class="field">
+        <label>Seu nome</label>
+        <input type="text" id="userName" placeholder="Ex: João Silva">
+      </div>
+
+      <div class="field">
+        <label>Seu email</label>
+        <input type="email" id="userEmail" placeholder="Ex: joao@email.com">
+      </div>
+
+      <div class="actions">
+        <button class="btn secondary" id="cancelIdentify">Cancelar</button>
+        <button class="btn primary" id="confirmIdentify">
+          Ativar monitoramento
+        </button>
+      </div>
+    </div>
+
+    <!-- ESTADO: SUCESSO -->
+    <div id="successStep" class="modal-step hidden">
+      <div class="success-icon">✓</div>
+
+      <h3>Monitoramento ativado</h3>
+
+      <p class="modal-text">
+        A partir de agora, o Guardião vai acompanhar este envio
+        e avisar você por email caso algo saia do normal.
+      </p>
+
+      <p class="modal-text highlight">
+        Você está usando o monitoramento gratuito (1 envio).
+      </p>
+
+      <p class="modal-text">
+        Para monitorar mais encomendas e evitar surpresas com clientes,
+        assine o <strong>Plano Essencial</strong>, que permite acompanhar
+        até <strong>50 envios simultaneamente</strong>.
+      </p>
+
+      <button class="btn primary full" id="goToPlan">
+        Assinar Plano Essencial
+      </button>
+    </div>
+
+  </div>
+</div>
+
+
+
+<!-- MODAL SUPORTE -->
+<div id="supportModal" class="modal hidden">
+  <div class="modal-overlay"></div>
+
+  <div class="modal-content">
+    <h3>Suporte</h3>
+
+    <p class="modal-hint">
+      Chamados são respondidos em horário comercial em até 24h.
+    </p>
+
+    <form id="supportForm">
+      <input type="text" id="supportName" placeholder="Seu nome" required />
+      <input type="email" id="supportEmail" placeholder="Seu email" required />
+      <textarea id="supportMessage" placeholder="Descreva o problema" required></textarea>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="closeSupport">
+          Cancelar
+        </button>
+        <button type="submit" class="btn-primary">
+          Enviar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
