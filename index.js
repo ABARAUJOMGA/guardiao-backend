@@ -14,23 +14,7 @@ import { adminAuth } from "./adminAuth.js";
 const app = express();
 app.set("trust proxy", 1);
 
-app.use((req, res, next) => {
-  res.setHeader(
-    "Content-Security-Policy",
-    [
-      "default-src 'self'",
-      "script-src 'self' https://static.cloudflareinsights.com",
-      "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'",
-      "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data:",
-      "connect-src 'self'",
-      "frame-src 'none'",
-      "object-src 'none'",
-      "base-uri 'self'"
-    ].join("; ")
-  );
-  next();
-});
+
 
 
 /* =========================
