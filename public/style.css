@@ -95,22 +95,6 @@ button {
 }
 
 /* MODAL */
-/* MODAL */
-.modal {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-}
-
-.modal.hidden {
-  display: none;
-}
-
-.modal-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.55);
-}
 
 .modal-content {
   background: #fff;
@@ -164,6 +148,8 @@ button {
   inset: 0;
   background: rgba(0,0,0,0.6);
 }
+
+
 
 /* ===== MODAL BOX ===== */
 .modal-box {
