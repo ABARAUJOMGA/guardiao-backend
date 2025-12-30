@@ -124,21 +124,49 @@
 </div>
 
 <!-- MODAL SUPORTE -->
+<!-- MODAL SUPORTE -->
 <div id="supportModal" class="modal hidden support-modal">
   <div class="modal-overlay"></div>
 
   <div class="modal-box">
     <button class="modal-close">×</button>
 
-    <h3>Suporte</h3>
-    <p class="modal-hint">
-      Chamados respondidos em até 24h úteis.
+    <h3>Fale com o suporte</h3>
+
+    <p class="support-intro">
+      Te respondemos em até <strong>24h úteis</strong>.
+      Descreva o problema com calma — quanto mais detalhes, melhor.
     </p>
 
-    <form id="supportForm">
-      <input type="text" id="supportName" placeholder="Seu nome" required />
-      <input type="email" id="supportEmail" placeholder="Seu email" required />
-      <textarea id="supportMessage" placeholder="Descreva o problema" required></textarea>
+    <form id="supportForm" class="support-form">
+      <div class="support-field">
+        <label for="supportName">Seu nome</label>
+        <input
+          type="text"
+          id="supportName"
+          placeholder="Ex: João da Loja XPTO"
+          required
+        />
+      </div>
+
+      <div class="support-field">
+        <label for="supportEmail">Seu email</label>
+        <input
+          type="email"
+          id="supportEmail"
+          placeholder="Ex: joao@minhaloja.com.br"
+          required
+        />
+      </div>
+
+      <div class="support-field">
+        <label for="supportMessage">O que aconteceu?</label>
+        <textarea
+          id="supportMessage"
+          placeholder="Conte o problema com o máximo de detalhes possível…"
+          required
+        ></textarea>
+      </div>
 
       <button type="submit" class="btn primary full">
         Enviar mensagem
@@ -146,6 +174,7 @@
     </form>
   </div>
 </div>
+
 
 <script src="app.js"></script>
 </body>

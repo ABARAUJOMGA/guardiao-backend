@@ -198,6 +198,60 @@ button {
   position: relative;
 }
 
+/* ===== SUPORTE (CONFORTO DE DIGITAÇÃO) ===== */
+
+.support-modal .modal-box {
+  max-width: 520px;
+}
+
+.support-intro {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.support-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.support-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.support-field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.support-field input,
+.support-field textarea {
+  padding: 12px 14px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+.support-field textarea {
+  min-height: 140px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* melhora foco */
+.support-field input:focus,
+.support-field textarea:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79,70,229,0.15);
+}
+
+
 .btn-loading::after {
   content: "";
   width: 18px;
