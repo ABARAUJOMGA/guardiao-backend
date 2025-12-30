@@ -1,15 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Painel Guardião</title>
-  <style>
-    body { font-family: Arial; padding: 20px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ddd; padding: 8px; }
-    th { background: #eee; }
-    button { margin-right: 4px; }
-  </style>
+  <title>Painel Guardião — Verificações</title>
+  <link rel="stylesheet" href="/admin/admin.css">
 </head>
 <body>
 
@@ -27,76 +21,6 @@
   <tbody></tbody>
 </table>
 
-<script>
-const API = "https://guardiao-backend-production.up.railway.app";
-const ADMIN_KEY = "guardiao-admin-123";
-
-async function carregar() {
-  const res = await fetch(API + "/admin/trackings", {
-    headers: { "X-ADMIN-KEY": ADMIN_KEY }
-  });
-  const data = await res.json();
-
-  const tbody = document.querySelector("tbody");
-  tbody.innerHTML = "";
-
-  data.forEach(t => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${t.tracking_code}</td>
-      <td>${t.last_status_raw || "-"}</td>
-      <td>${t.alert_sent ? "SIM" : "NÃO"}</td>
-      <td>
-        <button onclick="check('${t.id}','first')">1ª</button>
-        <button onclick="check('${t.id}','second')">2ª</button>
-        <button onclick="exception('${t.id}')">Exceção</button>
-        <button onclick="email('${t.id}')">Email</button>
-        <button onclick="delivered('${t.id}')">Entregue</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-async function post(url, body = {}) {
-  await fetch(API + url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-ADMIN-KEY": ADMIN_KEY
-    },
-    body: JSON.stringify(body)
-  });
-  carregar();
-}
-
-function check(id, type) {
-  post(`/admin/trackings/${id}/check`, { check_type: type });
-}
-
-function exception(id) {
-  const status = prompt("Status bruto:");
-  const type = prompt("Tipo (AWAITING_PICKUP, DELIVERY_FAILED...)");
-  const sev = prompt("Severidade (low, medium, high)");
-  post(`/admin/trackings/${id}/exception`, {
-    status_raw: status,
-    exception_type: type,
-    severity: sev
-  });
-}
-
-function email(id) {
-  post(`/admin/trackings/${id}/send-email`);
-}
-
-function delivered(id) {
-  if (confirm("Marcar como entregue?")) {
-    post(`/admin/trackings/${id}/delivered`);
-  }
-}
-
-carregar();
-</script>
-
+<script src="/admin/admin.js"></script>
 </body>
 </html>
