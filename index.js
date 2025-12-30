@@ -12,28 +12,40 @@ import { adminAuth } from "./adminAuth.js";
    APP INIT
 ========================= */
 const app = express();
-app.use((req, res, next) => {
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'self'; " +
-    "style-src 'self' https://fonts.googleapis.com; " +
-    "font-src 'self' https://fonts.gstatic.com; " +
-    "script-src 'self'; " +
-    "connect-src 'self' https://guardiao-backend-production.up.railway.app"
-  );
-  next();
-});
+app.use(cors({
+  origin: function (origin, callback) {
+    // permitir chamadas sem origin (file://)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      "https://guardiao-backend-production.up.railway.app"
+    ];
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "X-ADMIN-KEY"]
+}));
+
+// responder preflight explicitamente
+app.options("*", cors());
+
+app.use(express.json());
+
 
 /* =========================
    STATIC ADMIN PANEL
 ========================= */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 app.use("/admin", express.static(path.join(__dirname, "public")));
 
 /* =========================
-   CONFIG SUPABASE
+   SUPABASE
 ========================= */
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -55,13 +67,24 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   USERS
+   USERS (MINI CADASTRO)
 ========================= */
 app.post("/users", async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
     return res.status(400).json({ error: "Email obrigatório" });
+  }
+
+  // reutiliza usuário se já existir
+  const { data: existing } = await supabase
+    .from("users")
+    .select("*")
+    .eq("email", email)
+    .single();
+
+  if (existing) {
+    return res.json(existing);
   }
 
   const { data, error } = await supabase
@@ -87,15 +110,28 @@ app.post("/trackings", async (req, res) => {
     return res.status(400).json({ error: "Dados obrigatórios" });
   }
 
+  // buscar plano do usuário
+  const { data: user, error: userError } = await supabase
+    .from("users")
+    .select("plan")
+    .eq("id", user_id)
+    .single();
+
+  if (userError || !user) {
+    return res.status(400).json({ error: "Usuário inválido" });
+  }
+
+  const limit = user.plan === "essential" ? 50 : 1;
+
   const { count } = await supabase
     .from("trackings")
     .select("*", { count: "exact", head: true })
     .eq("user_id", user_id)
     .eq("status", "active");
 
-  if (count >= 1) {
+  if (count >= limit) {
     return res.status(403).json({
-      error: "Plano gratuito permite apenas 1 monitoramento ativo"
+      error: `Seu plano permite até ${limit} monitoramentos ativos`
     });
   }
 
@@ -132,7 +168,7 @@ app.get("/trackings/:user_id", async (req, res) => {
 });
 
 /* =========================
-   RUN MONITOR
+   RUN MONITOR (JOB)
 ========================= */
 app.post("/run-monitor", async (req, res) => {
   await rodarMonitoramento();
@@ -140,7 +176,7 @@ app.post("/run-monitor", async (req, res) => {
 });
 
 /* =========================
-   ADMIN ROUTES
+   ADMIN — LIST TRACKINGS
 ========================= */
 app.get("/admin/trackings", adminAuth, async (req, res) => {
   const { data, error } = await supabase
@@ -161,6 +197,9 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
   res.json(data);
 });
 
+/* =========================
+   ADMIN — CHECKS
+========================= */
 app.post("/admin/trackings/:id/check", adminAuth, async (req, res) => {
   const { check_type } = req.body;
 
@@ -172,6 +211,9 @@ app.post("/admin/trackings/:id/check", adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+/* =========================
+   ADMIN — EXCEPTION
+========================= */
 app.post("/admin/trackings/:id/exception", adminAuth, async (req, res) => {
   const { exception_type, severity, status_raw } = req.body;
 
@@ -190,6 +232,9 @@ app.post("/admin/trackings/:id/exception", adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+/* =========================
+   ADMIN — SEND EMAIL (CTA)
+========================= */
 app.post("/admin/trackings/:id/send-email", adminAuth, async (req, res) => {
   const trackingId = req.params.id;
 
@@ -214,11 +259,17 @@ app.post("/admin/trackings/:id/send-email", adminAuth, async (req, res) => {
     text: `
 Olá,
 
-
 Detectamos uma situação que pode exigir atenção em uma encomenda monitorada.
 
 Código: ${tracking.tracking_code}
 Status: ${tracking.last_status_raw || "Não informado"}
+
+Este alerta faz parte do monitoramento gratuito (1 encomenda).
+
+Para monitorar mais encomendas e não ser mais surpreendido por exceções e reclamações de clientes,
+clique no link abaixo e assine o Plano Essencial (até 50 encomendas):
+
+👉 https://SEU_LINK_MERCADO_PAGO_AQUI
 
 — Guardião de Rastreamento
     `
@@ -235,12 +286,47 @@ Status: ${tracking.last_status_raw || "Não informado"}
   res.json({ ok: true });
 });
 
+/* =========================
+   ADMIN — DELIVERED
+========================= */
 app.post("/admin/trackings/:id/delivered", adminAuth, async (req, res) => {
   await supabase.from("trackings").update({
     status: "delivered",
     flow_stage: "delivered",
     delivered_at: new Date().toISOString()
   }).eq("id", req.params.id);
+
+  res.json({ ok: true });
+});
+
+/* =========================
+   EVENTS (SUPORTE)
+========================= */
+app.post("/events", async (req, res) => {
+  const { type, payload } = req.body;
+
+  await supabase.from("events").insert([{
+    type,
+    payload
+  }]);
+
+  if (type === "support_request") {
+    await enviarEmail({
+      to: "atendimento@abaraujo.com",
+      subject: "📩 Novo chamado de suporte — Guardião",
+      text: `
+Novo chamado de suporte recebido:
+
+Nome: ${payload.name}
+Email: ${payload.email}
+
+Mensagem:
+${payload.message}
+
+Responder em horário comercial (até 24h).
+      `
+    });
+  }
 
   res.json({ ok: true });
 });
