@@ -8,48 +8,51 @@ import { rodarMonitoramento } from "./monitor.js";
 import { enviarEmail } from "./mailer.js";
 import { adminAuth } from "./adminAuth.js";
 
-
-const allowedOrigins = [
-  "https://guardiaorastreamento.com.br",
-  "https://www.guardiaorastreamento.com.br",
-  "null"
-];
-
-
 /* =========================
    APP INIT
 ========================= */
 const app = express();
-app.use(cors({
-  origin: function (origin, callback) {
-    // permitir chamadas sem origin (file://)
-    if (!origin) return callback(null, true);
-
-    const allowedOrigins = [
-      "https://guardiao-backend-production.up.railway.app"
-    ];
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "X-ADMIN-KEY"]
-}));
-
-// responder preflight explicitamente
-app.options("*", cors());
-
-app.use(express.json());
-
+app.set("trust proxy", 1);
 
 /* =========================
-   STATIC ADMIN PANEL
+   CORS
+========================= */
+const allowedOrigins = [
+  "https://guardiaorastreamento.com.br",
+  "https://www.guardiaorastreamento.com.br",
+  "null" // file:// local
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "X-ADMIN-KEY"]
+  })
+);
+
+app.options("*", cors());
+app.use(express.json());
+
+/* =========================
+   PATHS
 ========================= */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/* =========================
+   STATIC FRONTEND
+========================= */
+// Landing page
+app.use(express.static(path.join(__dirname, "public")));
+
+// Admin panel
 app.use("/admin", express.static(path.join(__dirname, "public")));
 
 /* =========================
@@ -70,7 +73,7 @@ const supabase = createClient(
 /* =========================
    HEALTH CHECK
 ========================= */
-app.get("/", (req, res) => {
+app.get("/health", (req, res) => {
   res.json({ status: "Guardião API online" });
 });
 
@@ -84,7 +87,6 @@ app.post("/users", async (req, res) => {
     return res.status(400).json({ error: "Email obrigatório" });
   }
 
-  // reutiliza usuário se já existir
   const { data: existing } = await supabase
     .from("users")
     .select("*")
@@ -118,7 +120,6 @@ app.post("/trackings", async (req, res) => {
     return res.status(400).json({ error: "Dados obrigatórios" });
   }
 
-  // buscar plano do usuário
   const { data: user, error: userError } = await supabase
     .from("users")
     .select("plan")
@@ -241,7 +242,7 @@ app.post("/admin/trackings/:id/exception", adminAuth, async (req, res) => {
 });
 
 /* =========================
-   ADMIN — SEND EMAIL (CTA)
+   ADMIN — SEND EMAIL
 ========================= */
 app.post("/admin/trackings/:id/send-email", adminAuth, async (req, res) => {
   const trackingId = req.params.id;
@@ -274,8 +275,8 @@ Status: ${tracking.last_status_raw || "Não informado"}
 
 Este alerta faz parte do monitoramento gratuito (1 encomenda).
 
-Para monitorar mais encomendas e não ser mais surpreendido por exceções e reclamações de clientes,
-clique no link abaixo e assine o Plano Essencial (até 50 encomendas):
+Para monitorar mais encomendas e não ser mais surpreendido por exceções,
+assine o Plano Essencial (até 50 encomendas):
 
 👉 https://SEU_LINK_MERCADO_PAGO_AQUI
 
@@ -331,7 +332,7 @@ Email: ${payload.email}
 Mensagem:
 ${payload.message}
 
-Responder em horário comercial (até 24h).
+Responder em até 24h.
       `
     });
   }
@@ -340,9 +341,16 @@ Responder em horário comercial (até 24h).
 });
 
 /* =========================
+   FRONTEND FALLBACK
+========================= */
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+/* =========================
    START SERVER
 ========================= */
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`Guardião API rodando na porta ${PORT}`);
+  console.log(`🚀 Guardião rodando na porta ${PORT}`);
 });
