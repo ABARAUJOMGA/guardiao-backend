@@ -1,92 +1,54 @@
 document.addEventListener("DOMContentLoaded", () => {
-  /* =====================
-     CONFIG
-  ====================== */
-  const API_BASE_URL = ""; // same-origin
   const PLAN_LINK = "https://mpago.li/1XoZc56";
-
   let pendingTrackingCode = null;
 
-  /* =====================
-     HELPERS
-  ====================== */
-  function $(id) {
-    return document.getElementById(id);
-  }
+  const $ = id => document.getElementById(id);
+  const safe = (el, fn) => el && el.addEventListener("click", fn);
 
-  function safeOnClick(element, handler) {
-    if (element) {
-      element.addEventListener("click", handler);
+  function setLoading(btn, on = true) {
+    if (!btn) return;
+    if (on) {
+      btn.classList.add("btn-loading");
+      btn.dataset.txt = btn.innerText;
+      btn.innerText = "Processando...";
+    } else {
+      btn.classList.remove("btn-loading");
+      btn.innerText = btn.dataset.txt || btn.innerText;
     }
   }
 
-  /* =====================
-     ELEMENTOS PRINCIPAIS
-  ====================== */
   const startForm = $("startTrackingForm");
   const trackingInput = $("trackingCode");
-
   const identifyModal = $("identifyModal");
   const identifyStep = $("identifyStep");
   const successStep = $("successStep");
-
   const userEmail = $("userEmail");
   const confirmIdentify = $("confirmIdentify");
   const cancelIdentify = $("cancelIdentify");
-
   const goToPlan = $("goToPlan");
   const subscribePlan = $("subscribePlan");
 
-  /* =====================
-     ABRIR MODAL
-  ====================== */
-  if (startForm) {
-    startForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-
-      const code = trackingInput.value.trim();
-      if (!code) {
-        alert("Informe o código de rastreamento.");
-        return;
-      }
-
-      pendingTrackingCode = code;
-
-      identifyStep.classList.remove("hidden");
-      successStep.classList.add("hidden");
-      identifyModal.classList.remove("hidden");
-    });
-  }
-
-  /* =====================
-     CANCELAR
-  ====================== */
-  safeOnClick(cancelIdentify, () => {
-    identifyModal.classList.add("hidden");
-    pendingTrackingCode = null;
+  startForm?.addEventListener("submit", e => {
+    e.preventDefault();
+    pendingTrackingCode = trackingInput.value.trim();
+    if (!pendingTrackingCode) return alert("Informe o código.");
+    identifyStep.classList.remove("hidden");
+    successStep.classList.add("hidden");
+    identifyModal.classList.remove("hidden");
   });
 
-  /* =====================
-     CONFIRMAR MONITORAMENTO
-  ====================== */
-  safeOnClick(confirmIdentify, async () => {
-    const email = userEmail.value.trim();
+  safe(cancelIdentify, () => identifyModal.classList.add("hidden"));
 
-    if (!email) {
-      alert("Informe seu email.");
-      return;
-    }
-
+  safe(confirmIdentify, async () => {
+    setLoading(confirmIdentify, true);
     try {
-      const userRes = await fetch(`${API_BASE_URL}/users`, {
+      const user = await fetch("/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
-      });
+        body: JSON.stringify({ email: userEmail.value })
+      }).then(r => r.json());
 
-      const user = await userRes.json();
-
-      const trackRes = await fetch(`${API_BASE_URL}/trackings`, {
+      await fetch("/trackings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -95,66 +57,49 @@ document.addEventListener("DOMContentLoaded", () => {
         })
       });
 
-      if (!trackRes.ok) {
-        const err = await trackRes.json();
-        alert(err.error || "Erro ao ativar monitoramento");
-        return;
-      }
-
       identifyStep.classList.add("hidden");
       successStep.classList.remove("hidden");
-    } catch (err) {
-      console.error(err);
-      alert("Erro de conexão. Tente novamente.");
+    } catch {
+      alert("Erro ao ativar monitoramento.");
+    } finally {
+      setLoading(confirmIdentify, false);
     }
   });
 
-  /* =====================
-     CTA PLANO ESSENCIAL
-  ====================== */
-  const paymentMessage =
-    "Após o pagamento, o Plano Essencial é ativado manualmente em até 24h úteis.";
+  [goToPlan, subscribePlan].forEach(btn =>
+    safe(btn, () => {
+      alert("Após o pagamento, a ativação ocorre em até 24h úteis.");
+      window.location.href = PLAN_LINK;
+    })
+  );
 
-  safeOnClick(goToPlan, () => {
-    alert(paymentMessage);
-    window.location.href = PLAN_LINK;
-  });
+  document.querySelectorAll(".modal-close").forEach(btn =>
+    btn.addEventListener("click", () =>
+      btn.closest(".modal").classList.add("hidden")
+    )
+  );
 
-  safeOnClick(subscribePlan, () => {
-    alert(paymentMessage);
-    window.location.href = PLAN_LINK;
-  });
-
-  /* =====================
-     SUPORTE
-  ====================== */
   const supportBtn = $("supportBtn");
   const supportModal = $("supportModal");
-  const closeSupport = $("closeSupport");
   const supportForm = $("supportForm");
 
-  safeOnClick(supportBtn, () => supportModal.classList.remove("hidden"));
-  safeOnClick(closeSupport, () => supportModal.classList.add("hidden"));
+  safe(supportBtn, () => supportModal.classList.remove("hidden"));
 
-  if (supportForm) {
-    supportForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-
-      await fetch(`${API_BASE_URL}/events`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "support_request",
-          payload: {
-            name: $("supportName").value,
-            email: $("supportEmail").value,
-            message: $("supportMessage").value
-          }
-        })
-      });
-
-      alert("Chamado enviado. Retornaremos em até 24h úteis.");
-      supportModal.classList.add("hidden");
+  supportForm?.addEventListener("submit", async e => {
+    e.preventDefault();
+    await fetch("/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "support_request",
+        payload: {
+          name: $("supportName").value,
+          email: $("supportEmail").value,
+          message: $("supportMessage").value
+        }
+      })
     });
-  }
+    alert("Mensagem enviada.");
+    supportModal.classList.add("hidden");
+  });
 });

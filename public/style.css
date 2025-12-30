@@ -44,21 +44,6 @@ h1 {
   border-radius: 8px;
 }
 
-.cta-box button[type="submit"] {
-  background: #5b5cf6;
-  color: #fff;
-  font-weight: 600;
-  padding: 14px 18px;
-  border-radius: 8px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.cta-box button[type="submit"]:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(91,92,246,0.25);
-}
-
-
 form {
   display: flex;
   gap: 10px;
@@ -78,19 +63,26 @@ button {
   background: #4f46e5;
   color: #fff;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .subscribe-btn,
 .btn.primary {
   background: #22c55e;
-  color: #fff;
-  font-weight: 600;
 }
 
 .subscribe-btn:hover,
 .btn.primary:hover {
   background: #16a34a;
+}
+
+.btn.secondary {
+  background: #e5e7eb;
+  color: #111;
+}
+
+.btn.full {
+  width: 100%;
 }
 
 .plan-info {
@@ -104,9 +96,8 @@ button {
 }
 
 .support button {
-  background: transparent;
+  background: none;
   color: #4f46e5;
-  border: none;
   padding: 0;
 }
 
@@ -116,33 +107,7 @@ button {
   margin-top: 30px;
 }
 
-/* MODAL */
-
-.modal-hint {
-  font-size: 14px;
-  color: #555;
-}
-
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.input-group label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #333;
-}
-
-.input-group input {
-  padding: 12px;
-  font-size: 15px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-}
-
-/* ===== MODAL BASE ===== */
+/* MODAL BASE */
 .modal {
   position: fixed;
   inset: 0;
@@ -159,91 +124,94 @@ button {
   background: rgba(0,0,0,0.6);
 }
 
-
-
-/* ===== MODAL BOX ===== */
-.modal-box,
-.modal-content {
+.modal-box {
   position: relative;
   z-index: 1;
   background: #fff;
+  max-width: 420px;
   margin: 10vh auto;
+  padding: 24px;
+  border-radius: 10px;
   box-shadow: 0 20px 40px rgba(0,0,0,0.25);
 }
 
-
-.modal-step h3 {
-  margin-bottom: 8px;
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
+  font-size: 22px;
+  color: #666;
+  cursor: pointer;
 }
 
-.modal-text {
-  line-height: 1.5;
+.modal-close:hover {
+  color: #000;
 }
-
 
 .modal-step.hidden {
   display: none;
 }
 
-
-
+.modal-text {
+  margin: 10px 0;
+  line-height: 1.5;
+}
 
 .modal-text.highlight {
   color: #065f46;
 }
 
-/* ===== FIELDS ===== */
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.field label {
+.modal-hint {
   font-size: 13px;
-  font-weight: 600;
-}
-
-.field input {
-  padding: 12px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 15px;
-}
-
-/* ===== ACTIONS ===== */
-.actions {
-  display: flex;
-  gap: 10px;
+  color: #666;
   margin-top: 10px;
 }
 
-.btn {
-  padding: 12px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
-.btn.primary {
-  background: #4f46e5;
-  color: #fff;
+.actions {
+  display: flex;
+  gap: 10px;
 }
 
-.btn.secondary {
-  background: #e5e7eb;
-  color: #111;
-}
-
-.btn.full {
-  width: 100%;
-}
-
-/* ===== SUCCESS ===== */
-/* ===== TEXT ===== */
 .success-icon {
   font-size: 36px;
   color: #22c55e;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+}
+
+/* SUPORTE */
+.support-modal textarea {
+  min-height: 100px;
+}
+
+/* LOADING */
+.btn-loading {
+  pointer-events: none;
+  opacity: 0.7;
+  position: relative;
+}
+
+.btn-loading::after {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg) translateY(-50%); }
 }
