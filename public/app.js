@@ -6,6 +6,37 @@ document.addEventListener("DOMContentLoaded", () => {
   const $ = id => document.getElementById(id);
   const safe = (el, fn) => el && el.addEventListener("click", fn);
 
+async function updatePlanStatus(user) {
+  const box = document.getElementById("planStatus");
+  const planName = document.getElementById("planName");
+  const planUsage = document.getElementById("planUsage");
+
+  if (!box || !user) return;
+
+  const isEssential = user.plan === "essential";
+  const limit = isEssential ? 50 : 1;
+
+  let trackings = [];
+  try {
+    const res = await fetch(`/trackings/${user.id}`);
+    trackings = await res.json();
+  } catch {}
+
+  const activeCount = Array.isArray(trackings)
+    ? trackings.filter(t => t.status === "active").length
+    : 0;
+
+  planName.innerText =
+    `Plano atual: ${isEssential ? "Essencial" : "Gratuito"}`;
+
+  planUsage.innerText =
+    `Uso atual: ${activeCount} de ${limit} envios`;
+
+  box.classList.remove("hidden");
+}
+
+
+
   function setLoading(btn, on = true) {
     if (!btn) return;
     if (on) {
@@ -74,6 +105,9 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: userEmail.value })
       }).then(r => r.json());
+
+await updatePlanStatus(user);
+
 
       const res = await fetch("/trackings", {
         method: "POST",
