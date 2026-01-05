@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Meus Rastreamentos — Guardião</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+
+<section class="container">
+  <h1>Meus rastreamentos</h1>
+
+  <div id="emailGate" class="email-gate hidden">
+  <p>Informe seu email para ver seus rastreamentos:</p>
+  <input type="email" id="emailInput" placeholder="seu@email.com" />
+  <button id="loadByEmail">Ver rastreamentos</button>
+</div>
+
+
+  <p id="planInfo" class="plan-info"></p>
+
+  <table class="trackings-table">
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Status atual</th>
+        <th>Situação</th>
+      </tr>
+    </thead>
+    <tbody id="trackingsBody">
+      <tr>
+        <td colspan="3">Carregando...</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="actions">
+    <a href="/" class="btn secondary">Voltar</a>
+    <a href="#" id="upgradeBtn" class="btn primary">Assinar Plano Essencial</a>
+  </div>
+</section>
+
+<script src="meus-rastreamentos.js?v=1"></script>
+</body>
+</html>

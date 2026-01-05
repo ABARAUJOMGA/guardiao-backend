@@ -155,6 +155,24 @@ document.addEventListener("DOMContentLoaded", () => {
     )
   );
 
+
+const myTrackingsBtn = $("myTrackingsBtn");
+
+safe(myTrackingsBtn, () => {
+  const userId = localStorage.getItem("guardiao_user_id");
+
+  if (!userId) {
+    // força entrada pelo email
+    identifyStep.classList.remove("hidden");
+    successStep.classList.add("hidden");
+    identifyModal.classList.remove("hidden");
+    return;
+  }
+
+  window.location.href = "/meus-rastreamentos.html";
+});
+
+
   /* =========================
      SUPORTE
   ========================= */
