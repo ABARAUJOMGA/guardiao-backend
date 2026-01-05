@@ -156,22 +156,54 @@ document.addEventListener("DOMContentLoaded", () => {
   );
 
 
+/* =========================
+   VER MEUS RASTREAMENTOS
+========================= */
+
 const myTrackingsBtn = document.getElementById("myTrackingsBtn");
 
-myTrackingsBtn.addEventListener("click", (e) => {
-  e.preventDefault();
+if (myTrackingsBtn) {
+  myTrackingsBtn.addEventListener("click", () => {
+    const storedUserId = localStorage.getItem("guardiao_user_id");
 
-  if (!window.guardiaoUserId) {
-    openIdentifyModal({
-      onSuccess: () => {
+    // Usuário já conhecido → acesso direto
+    if (storedUserId) {
+      window.location.href = "/meus-rastreamentos.html";
+      return;
+    }
+
+    // Usuário não identificado → usar modal existente
+    identifyStep.classList.remove("hidden");
+    successStep.classList.add("hidden");
+    identifyModal.classList.remove("hidden");
+
+    // Sobrescreve comportamento do botão de confirmação APENAS UMA VEZ
+    const handler = async () => {
+      setLoading(confirmIdentify, true);
+
+      try {
+        const user = await fetch("/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: userEmail.value })
+        }).then(r => r.json());
+
+        localStorage.setItem("guardiao_user_id", user.id);
+        localStorage.setItem("guardiao_user_plan", user.plan);
+
         window.location.href = "/meus-rastreamentos.html";
+      } catch (err) {
+        alert("Erro ao identificar usuário.");
+      } finally {
+        setLoading(confirmIdentify, false);
+        confirmIdentify.removeEventListener("click", handler);
       }
-    });
-    return;
-  }
+    };
 
-  window.location.href = "/meus-rastreamentos.html";
-});
+    confirmIdentify.addEventListener("click", handler);
+  });
+}
+
 
 
 

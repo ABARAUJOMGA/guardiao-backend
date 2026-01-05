@@ -5,7 +5,6 @@
   <title>Guardião de Rastreamento</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="style.css?v=1">
-
 </head>
 <body>
 
@@ -41,6 +40,7 @@
         Monitoramento exclusivo para <strong>Correios</strong>.
       </p>
 
+      <!-- FORMULÁRIO APENAS PARA CRIAÇÃO -->
       <form id="startTrackingForm">
         <input
           type="text"
@@ -51,30 +51,26 @@
         <button type="submit">Monitorar envio</button>
       </form>
 
-      <!-- STATUS DO PLANO -->
+      <!-- STATUS DO PLANO (INDEPENDENTE DO FORM) -->
+      <div id="planStatus" class="plan-status hidden">
 
-<!-- STATUS DO PLANO -->
-<div id="planStatus" class="plan-status hidden">
+        <div class="plan-line">
+          <strong id="planName"></strong>
+        </div>
 
-  <div class="plan-line">
-    <strong id="planName"></strong>
-  </div>
+        <div class="plan-line" id="planUsage"></div>
 
-  <div class="plan-line" id="planUsage"></div>
+        <!-- BOTÃO DE ACESSO PURO (SEM SUBMIT, SEM TRACKING) -->
+        <button
+          id="myTrackingsBtn"
+          class="my-trackings-btn"
+          type="button"
+          aria-label="Ver meus rastreamentos"
+        >
+          Ver meus rastreamentos
+        </button>
 
-  <!-- AÇÃO DE NAVEGAÇÃO (NUNCA SUBMIT) -->
-  <button
-    id="myTrackingsBtn"
-    class="my-trackings-btn"
-    type="button"
-    aria-label="Ver meus rastreamentos"
-  >
-    Ver meus rastreamentos
-  </button>
-
-</div>
-
-
+      </div>
 
       <p class="plan-info">
         Plano gratuito: 1 envio<br />
@@ -88,7 +84,7 @@
     </div>
 
     <div class="support">
-      <button id="supportBtn">Falar com o suporte</button>
+      <button id="supportBtn" type="button">Falar com o suporte</button>
     </div>
 
     <p class="footer">
@@ -103,7 +99,7 @@
   <div class="modal-overlay"></div>
 
   <div class="modal-box">
-    <button class="modal-close">×</button>
+    <button class="modal-close" type="button">×</button>
 
     <div id="identifyStep" class="modal-step">
       <h3>Ativar monitoramento</h3>
@@ -118,8 +114,10 @@
       </div>
 
       <div class="actions">
-        <button class="btn secondary" id="cancelIdentify">Cancelar</button>
-        <button class="btn primary" id="confirmIdentify">
+        <button class="btn secondary" id="cancelIdentify" type="button">
+          Cancelar
+        </button>
+        <button class="btn primary" id="confirmIdentify" type="button">
           Ativar monitoramento
         </button>
       </div>
@@ -138,7 +136,7 @@
         Plano gratuito ativo (1 envio).
       </p>
 
-      <button class="btn primary full" id="goToPlan">
+      <button class="btn primary full" id="goToPlan" type="button">
         Assinar Plano Essencial
       </button>
 
@@ -154,7 +152,7 @@
   <div class="modal-overlay"></div>
 
   <div class="modal-box">
-    <button class="modal-close">&times;</button>
+    <button class="modal-close" type="button">&times;</button>
 
     <h2>Suporte</h2>
 
@@ -186,7 +184,7 @@
   </div>
 </div>
 
-<script src="app.js?v=1"></script>
+<script src="app.js?v=2"></script>
 
 </body>
 </html>
