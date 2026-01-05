@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const PLAN_LINK = "https://mpago.li/1XoZc56";
   let pendingTrackingCode = null;
+  let currentUser = null;
 
   const $ = id => document.getElementById(id);
   const safe = (el, fn) => el && el.addEventListener("click", fn);
@@ -15,6 +16,32 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.classList.remove("btn-loading");
       btn.innerText = btn.dataset.txt || btn.innerText;
     }
+  }
+
+  async function updatePlanStatus(user) {
+    const box = $("planStatus");
+    const name = $("planName");
+    const usage = $("planUsage");
+
+    if (!user || !box) return;
+
+    const limit = user.plan === "essential" ? 50 : 1;
+
+    const trackings = await fetch(`/trackings/${user.id}`)
+      .then(r => r.json())
+      .catch(() => []);
+
+    const activeCount = Array.isArray(trackings)
+      ? trackings.filter(t => t.status === "active").length
+      : 0;
+
+    name.innerText =
+      `Plano atual: ${user.plan === "essential" ? "Essencial" : "Gratuito"}`;
+
+    usage.innerText =
+      `Envios ativos: ${activeCount} de ${limit}`;
+
+    box.classList.remove("hidden");
   }
 
   const startForm = $("startTrackingForm");
@@ -42,23 +69,32 @@ document.addEventListener("DOMContentLoaded", () => {
   safe(confirmIdentify, async () => {
     setLoading(confirmIdentify, true);
     try {
-      const user = await fetch("/users", {
+      currentUser = await fetch("/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: userEmail.value })
       }).then(r => r.json());
 
-      await fetch("/trackings", {
+      const res = await fetch("/trackings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_id: user.id,
+          user_id: currentUser.id,
           tracking_code: pendingTrackingCode
         })
       });
 
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || "Limite atingido.");
+        return;
+      }
+
       identifyStep.classList.add("hidden");
       successStep.classList.remove("hidden");
+
+      await updatePlanStatus(currentUser);
+
     } catch {
       alert("Erro ao ativar monitoramento.");
     } finally {

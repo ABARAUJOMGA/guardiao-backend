@@ -50,6 +50,12 @@
         <button type="submit">Monitorar envio</button>
       </form>
 
+      <!-- STATUS DO PLANO -->
+      <div id="planStatus" class="plan-status hidden">
+        <strong id="planName"></strong><br />
+        <span id="planUsage"></span>
+      </div>
+
       <p class="plan-info">
         Plano gratuito: 1 envio<br />
         Plano Essencial: até 50 envios<br />
@@ -123,6 +129,7 @@
   </div>
 </div>
 
+<!-- MODAL SUPORTE -->
 <div id="supportModal" class="modal hidden support-modal">
   <div class="modal-overlay"></div>
 
@@ -138,32 +145,18 @@
 
     <form id="supportForm" class="support-form">
       <div class="support-field">
-        <label for="supportName">Seu nome</label>
-        <input
-          id="supportName"
-          type="text"
-          placeholder="Ex: João Silva"
-          required
-        />
+        <label>Seu nome</label>
+        <input id="supportName" required />
       </div>
 
       <div class="support-field">
-        <label for="supportEmail">Seu e-mail</label>
-        <input
-          id="supportEmail"
-          type="email"
-          placeholder="voce@email.com"
-          required
-        />
+        <label>Seu e-mail</label>
+        <input id="supportEmail" type="email" required />
       </div>
 
       <div class="support-field">
-        <label for="supportMessage">Descreva o problema</label>
-        <textarea
-          id="supportMessage"
-          placeholder="Explique o que aconteceu, sem pressa…"
-          required
-        ></textarea>
+        <label>Descreva o problema</label>
+        <textarea id="supportMessage" required></textarea>
       </div>
 
       <button type="submit" class="btn primary full">
@@ -172,8 +165,6 @@
     </form>
   </div>
 </div>
-
-
 
 <script src="app.js"></script>
 </body>
