@@ -156,21 +156,23 @@ document.addEventListener("DOMContentLoaded", () => {
   );
 
 
-const myTrackingsBtn = $("myTrackingsBtn");
+const myTrackingsBtn = document.getElementById("myTrackingsBtn");
 
-safe(myTrackingsBtn, () => {
-  const userId = localStorage.getItem("guardiao_user_id");
+myTrackingsBtn.addEventListener("click", (e) => {
+  e.preventDefault();
 
-  if (!userId) {
-    // força entrada pelo email
-    identifyStep.classList.remove("hidden");
-    successStep.classList.add("hidden");
-    identifyModal.classList.remove("hidden");
+  if (!window.guardiaoUserId) {
+    openIdentifyModal({
+      onSuccess: () => {
+        window.location.href = "/meus-rastreamentos.html";
+      }
+    });
     return;
   }
 
   window.location.href = "/meus-rastreamentos.html";
 });
+
 
 
   /* =========================
