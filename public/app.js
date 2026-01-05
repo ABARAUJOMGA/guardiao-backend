@@ -106,9 +106,6 @@ async function updatePlanStatus(user) {
         body: JSON.stringify({ email: userEmail.value })
       }).then(r => r.json());
 
-await updatePlanStatus(user);
-
-
       const res = await fetch("/trackings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
