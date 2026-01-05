@@ -18,6 +18,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const limit = 20;
   let debounceTimer = null;
 
+  const API = "";
+const ADMIN_KEY = "guardiao-admin-123";
+
   /* =====================================================
      HELPERS
   ===================================================== */
