@@ -9,42 +9,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const emailInput = document.getElementById("emailInput");
   const loadByEmail = document.getElementById("loadByEmail");
 
-  upgradeBtn.onclick = () => {
-    alert("Após o pagamento, a ativação ocorre em até 24h úteis.");
-    window.location.href = PLAN_LINK;
-  };
-
-  let userId = localStorage.getItem("guardiao_user_id");
-  let plan = localStorage.getItem("guardiao_user_plan");
-
-  if (!userId) {
-    emailGate.classList.remove("hidden");
-
-    loadByEmail.onclick = async () => {
-      const email = emailInput.value.trim();
-      if (!email) return alert("Informe o email.");
-
-      const user = await fetch("/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
-      }).then(r => r.json());
-
-      localStorage.setItem("guardiao_user_id", user.id);
-      localStorage.setItem("guardiao_user_plan", user.plan);
-
-      location.reload();
-    };
-
-    return;
+  function traduzirStatus(status) {
+    return {
+      active: "ATIVA",
+      exception: "EXCEÇÃO",
+      delivered: "ENTREGUE"
+    }[status] || status.toUpperCase();
   }
 
-  try {
-    const res = await fetch(`/trackings/${userId}`);
+  async function carregarPorUser(user) {
+    const res = await fetch(`/trackings/${user.id}`);
     const trackings = await res.json();
 
-    const isEssential = plan === "essential";
+    const isEssential = user.plan === "essential";
     const limit = isEssential ? 50 : 1;
+
     const activeCount = Array.isArray(trackings)
       ? trackings.filter(t => t.status === "active").length
       : 0;
@@ -66,14 +45,54 @@ document.addEventListener("DOMContentLoaded", async () => {
       tr.innerHTML = `
         <td>${t.tracking_code}</td>
         <td>${t.last_status_raw || "-"}</td>
-        <td>${t.status}</td>
+        <td>${traduzirStatus(t.status)}</td>
       `;
       tbody.appendChild(tr);
     });
-
-  } catch (err) {
-    console.error(err);
-    tbody.innerHTML =
-      "<tr><td colspan='3'>Erro ao carregar rastreamentos.</td></tr>";
   }
+
+  async function identificarPorEmail(email) {
+    const user = await fetch("/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    }).then(r => r.json());
+
+    localStorage.setItem("guardiao_user_id", user.id);
+    localStorage.setItem("guardiao_user_plan", user.plan);
+
+    return user;
+  }
+
+  // Sempre permitir troca de email
+  emailGate.classList.remove("hidden");
+
+  loadByEmail.onclick = async () => {
+    const email = emailInput.value.trim();
+    if (!email) return alert("Informe o email.");
+
+    try {
+      tbody.innerHTML =
+        "<tr><td colspan='3'>Carregando...</td></tr>";
+
+      const user = await identificarPorEmail(email);
+      await carregarPorUser(user);
+    } catch {
+      tbody.innerHTML =
+        "<tr><td colspan='3'>Erro ao carregar rastreamentos.</td></tr>";
+    }
+  };
+
+  // Carrega automaticamente se já houver usuário salvo
+  const storedId = localStorage.getItem("guardiao_user_id");
+  const storedPlan = localStorage.getItem("guardiao_user_plan");
+
+  if (storedId && storedPlan) {
+    carregarPorUser({ id: storedId, plan: storedPlan });
+  }
+
+  upgradeBtn.onclick = () => {
+    alert("Após o pagamento, a ativação ocorre em até 24h úteis.");
+    window.location.href = PLAN_LINK;
+  };
 });
