@@ -224,27 +224,77 @@ app.post("/run-monitor", async (req, res) => {
    ADMIN — LISTAR TRACKINGS
 ========================= */
 app.get("/admin/trackings", adminAuth, async (req, res) => {
-  try {
-    if (!supabase) {
-      return res.status(503).json({ error: "Supabase indisponível" });
-    }
-
-    const { data, error } = await supabase
-      .from("trackings")
-      .select("*, users(email)")
-      .is("delivered_at", null)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
-
-    res.json(data);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase indisponível" });
   }
+
+  const page = parseInt(req.query.page || "1");
+  const limit = parseInt(req.query.limit || "20");
+  const offset = (page - 1) * limit;
+  const email = req.query.email;
+
+  let userIds = null;
+
+  // 1️⃣ Se houver busca por email, resolve usuários primeiro
+  if (email) {
+    const { data: users, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .ilike("email", `%${email}%`);
+
+    if (userError) {
+      return res.status(500).json({ error: userError.message });
+    }
+
+    if (!users || users.length === 0) {
+      return res.json({
+        page,
+        limit,
+        total: 0,
+        items: []
+      });
+    }
+
+    userIds = users.map(u => u.id);
+  }
+
+  // 2️⃣ Busca trackings
+  let query = supabase
+    .from("trackings")
+    .select(
+      `
+      *,
+      users(email),
+      tracking_exceptions(count),
+      tracking_emails(count)
+      `,
+      { count: "exact" }
+    )
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (userIds) {
+    query = query.in("user_id", userIds);
+  }
+
+  const { data, count, error } = await query;
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json({
+    page,
+    limit,
+    total: count,
+    items: data.map(t => ({
+      ...t,
+      alerts_count: t.tracking_emails?.[0]?.count || 0,
+      exceptions_count: t.tracking_exceptions?.[0]?.count || 0
+    }))
+  });
 });
+
 
 /* =========================
    ADMIN — CHECK MANUAL
