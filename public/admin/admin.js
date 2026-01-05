@@ -1,4 +1,5 @@
-const API = "https://guardiao-backend-production.up.railway.app";
+// Usa a mesma origem do site (funciona em prod, local, Railway, Cloudflare)
+const API = "";
 const ADMIN_KEY = "guardiao-admin-123";
 
 async function carregar() {
@@ -54,6 +55,7 @@ async function post(path, body = {}) {
     },
     body: JSON.stringify(body)
   });
+
   carregar();
 }
 
