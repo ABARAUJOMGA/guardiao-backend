@@ -380,15 +380,25 @@ app.get("/admin/exceptions/templates", adminAuth, async (req, res) => {
 app.post("/admin/trackings/:id/check", adminAuth, async (req, res) => {
   if (!requireSupabase(req, res)) return;
 
+  const trackingId = req.params.id;
   const { check_type } = req.body;
 
+  const now = new Date().toISOString();
+
+  // registra check
   await supabase.from("tracking_checks").insert([{
-    tracking_id: req.params.id,
+    tracking_id: trackingId,
     check_type
   }]);
 
+  // atualiza tracking principal
+  await supabase.from("trackings").update({
+    last_checked_at: now
+  }).eq("id", trackingId);
+
   res.json({ ok: true });
 });
+
 
 /* =========================
    ADMIN — EXCEPTION
@@ -396,22 +406,31 @@ app.post("/admin/trackings/:id/check", adminAuth, async (req, res) => {
 app.post("/admin/trackings/:id/exception", adminAuth, async (req, res) => {
   if (!requireSupabase(req, res)) return;
 
-  const { exception_type, severity, status_raw } = req.body;
+  const trackingId = req.params.id;
+  const { exception_type, severity } = req.body;
+
+  // buscar último status conhecido
+  const { data: tracking } = await supabase
+    .from("trackings")
+    .select("last_status_raw")
+    .eq("id", trackingId)
+    .single();
 
   await supabase.from("tracking_exceptions").insert([{
-    tracking_id: req.params.id,
+    tracking_id: trackingId,
     exception_type,
     severity,
-    status_raw
+    status_raw: tracking?.last_status_raw || "-"
   }]);
 
   await supabase.from("trackings").update({
     status: "exception",
     flow_stage: "exception"
-  }).eq("id", req.params.id);
+  }).eq("id", trackingId);
 
   res.json({ ok: true });
 });
+
 
 /* =========================
    ADMIN — SEND EMAIL

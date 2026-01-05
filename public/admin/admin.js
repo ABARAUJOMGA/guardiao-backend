@@ -87,7 +87,11 @@ async function safeFetch(url, options = {}) {
           <td>${statusBadge(t.status)}</td>
           <td>${t.tracking_code}</td>
           <td>${t.users?.email || "-"}</td>
-          <td>${t.last_status_raw || "-"}</td>
+          <td>
+  ${t.last_checked_at
+    ? new Date(t.last_checked_at).toLocaleString("pt-BR")
+    : (t.last_status_raw || "-")}
+</td>
           <td>${t.alerts_count || 0}</td>
           <td class="actions">
             <button class="primary">Verificado</button>
@@ -108,10 +112,11 @@ async function safeFetch(url, options = {}) {
           histBtn
         ] = tr.querySelectorAll("button");
 
-        checkBtn.onclick = () =>
-          post(`/admin/trackings/${t.id}/check`, {
-            check_type: "manual"
-          });
+checkBtn.onclick = () =>
+  post(`/admin/trackings/${t.id}/check`, {
+    check_type: "manual"
+  });
+
 
         excBtn.onclick = () => criarExcecao(t.id);
 
@@ -182,41 +187,18 @@ async function safeFetch(url, options = {}) {
   }
 
 async function criarExcecao(id) {
-  const templates = await safeFetch("/admin/exceptions/templates", {
-    headers: { "X-ADMIN-KEY": ADMIN_KEY }
+  const tipo = prompt("Informe o tipo da exceção:");
+  if (!tipo) return;
+
+  const severidade = prompt("Severidade (low, medium, high):");
+  if (!severidade) return;
+
+  await post(`/admin/trackings/${id}/exception`, {
+    exception_type: tipo,
+    severity: severidade
   });
-
-  let msg = "Escolha uma exceção existente ou crie nova:\n\n";
-  templates.forEach((t, i) => {
-    msg += `${i + 1}. ${t.exception_type} | ${t.severity} | ${t.status_raw}\n`;
-  });
-
-  msg += "\nDigite o número ou deixe vazio para criar nova:";
-  const choice = prompt(msg);
-
-  let payload;
-
-  if (choice && templates[choice - 1]) {
-    payload = templates[choice - 1];
-  } else {
-    const status = prompt("Status bruto:");
-    if (!status) return;
-
-    const type = prompt("Tipo da exceção:");
-    if (!type) return;
-
-    const sev = prompt("Severidade (low, medium, high):");
-    if (!sev) return;
-
-    payload = {
-      status_raw: status,
-      exception_type: type,
-      severity: sev
-    };
-  }
-
-  await post(`/admin/trackings/${id}/exception`, payload);
 }
+
 
 
   /* =====================================================
@@ -232,29 +214,36 @@ async function abrirHistorico(trackingId) {
       `/admin/trackings/${trackingId}/history`
     );
 
+    const checks = res.checks.map(c =>
+      `<li>✔️ Verificado (${new Date(c.created_at).toLocaleString("pt-BR")})</li>`
+    ).join("");
+
+    const exceptions = res.exceptions.map(e =>
+      `<li>⚠️ Exceção: ${e.exception_type} (${e.severity}) — ${e.status_raw}</li>`
+    ).join("");
+
+    const emails = res.emails.map(e =>
+      `<li>📧 Email enviado (${new Date(e.created_at).toLocaleString("pt-BR")})</li>`
+    ).join("");
+
     historyContent.innerHTML = `
-      <h4>Histórico</h4>
-
-      <p><strong>Checks:</strong> ${res.checks.length}</p>
-      <p><strong>Exceções:</strong> ${res.exceptions.length}</p>
-      <p><strong>Emails enviados:</strong> ${res.emails.length}</p>
-
-      <hr />
-
-      <h5>Exceções</h5>
+      <h4>Linha do tempo</h4>
       <ul>
-        ${res.exceptions.map(e =>
-          `<li>${e.exception_type} (${e.severity}) – ${e.status_raw}</li>`
-        ).join("") || "<li>Nenhuma</li>"}
+        ${checks || ""}
+        ${exceptions || ""}
+        ${emails || ""}
+        ${(res.checks.length === 0 &&
+   res.exceptions.length === 0 &&
+   res.emails.length === 0)
+   ? "<li>Nenhum evento.</li>"
+   : ""}
+
       </ul>
     `;
   } catch (err) {
     historyContent.innerHTML = `Erro ao carregar histórico: ${err.message}`;
   }
 }
-closeHistoryBtn.onclick = () => {
-  historyModal.classList.add("hidden");
-};
 
 
   /* =====================================================
