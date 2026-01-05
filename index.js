@@ -87,9 +87,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
    HEALTH CHECK
 ========================= */
 app.get("/health", (req, res) => {
-  res.json({ status: "Guardião API online" });
+  res.json({ status: "VERSAO NOVA - DEPLOY OK" });
 });
-
 /* =========================
    USERS
 ========================= */
