@@ -358,6 +358,15 @@ app.get("/admin/exceptions/templates", adminAuth, async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
+const allowedSeverities = ["low", "medium", "high"];
+
+if (!allowedSeverities.includes(severity)) {
+  return res.status(400).json({
+    error: "Severidade inválida"
+  });
+}
+
+
   // remove duplicadas
   const unique = [];
   const seen = new Set();

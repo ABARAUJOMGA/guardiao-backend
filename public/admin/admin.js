@@ -190,16 +190,28 @@ async function criarExcecao(id) {
   const tipo = prompt("Tipo da exceção:");
   if (!tipo) return;
 
-  const severidade = prompt("Severidade (low, medium, high):");
-  if (!severidade) return;
+  const severidade = prompt(
+    "Severidade:\n1 = Baixa\n2 = Média\n3 = Alta"
+  );
+
+  let severity;
+
+  if (severidade === "1") severity = "low";
+  else if (severidade === "2") severity = "medium";
+  else if (severidade === "3") severity = "high";
+  else {
+    alert("Severidade inválida.");
+    return;
+  }
 
   await post(`/admin/trackings/${id}/exception`, {
     exception_type: tipo,
-    severity: severidade
+    severity
   });
 
-  carregar(); // recarrega tabela
+  carregar();
 }
+
 
 
 
@@ -256,8 +268,7 @@ async function abrirHistorico(trackingId) {
 
   carregar();
 });
-const historyModal = document.getElementById("historyModal");
-const closeHistoryBtn = document.getElementById("closeHistoryBtn");
+
 
 if (closeHistoryBtn && historyModal) {
   closeHistoryBtn.addEventListener("click", () => {
