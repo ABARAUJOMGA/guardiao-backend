@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Guardião — Painel Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="admin.css?v=2">
+  <link rel="stylesheet" href="admin.css?v=2" />
 </head>
 <body>
 
@@ -30,7 +30,7 @@
         <th>Status</th>
         <th>Código</th>
         <th>Email do cliente</th>
-        <th>Último status</th>
+        <th>Último status / Verificação</th>
         <th>Alertas</th>
         <th>Ações</th>
       </tr>
@@ -43,20 +43,36 @@
   </table>
 
   <div class="pagination">
-    <button id="prevPage">← Anterior</button>
+    <button id="prevPage" type="button">← Anterior</button>
     <span id="pageInfo">Página 1</span>
-    <button id="nextPage">Próxima →</button>
+    <button id="nextPage" type="button">Próxima →</button>
   </div>
 
 </section>
 
-<!-- MODAL HISTÓRICO -->
+<!-- =========================
+     MODAL HISTÓRICO
+========================= -->
 <div id="historyModal" class="modal hidden">
   <div class="modal-overlay"></div>
+
   <div class="modal-box wide">
-    <button class="modal-close">×</button>
+    <!-- ID OBRIGATÓRIO PARA O JS -->
+    <button
+      id="closeHistoryBtn"
+      type="button"
+      class="modal-close"
+      aria-label="Fechar histórico"
+    >
+      ×
+    </button>
+
     <h2>Histórico do rastreio</h2>
-    <div id="historyContent">Carregando…</div>
+
+    <!-- ID OBRIGATÓRIO PARA O JS -->
+    <div id="historyContent">
+      Carregando…
+    </div>
   </div>
 </div>
 

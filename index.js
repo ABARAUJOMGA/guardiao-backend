@@ -409,27 +409,46 @@ app.post("/admin/trackings/:id/exception", adminAuth, async (req, res) => {
   const trackingId = req.params.id;
   const { exception_type, severity } = req.body;
 
-  // buscar último status conhecido
-  const { data: tracking } = await supabase
+  if (!exception_type || !severity) {
+    return res.status(400).json({ error: "Dados incompletos" });
+  }
+
+  // Busca último status conhecido
+  const { data: tracking, error: tErr } = await supabase
     .from("trackings")
     .select("last_status_raw")
     .eq("id", trackingId)
     .single();
 
-  await supabase.from("tracking_exceptions").insert([{
-    tracking_id: trackingId,
-    exception_type,
-    severity,
-    status_raw: tracking?.last_status_raw || "-"
-  }]);
+  if (tErr) {
+    return res.status(500).json({ error: tErr.message });
+  }
 
-  await supabase.from("trackings").update({
-    status: "exception",
-    flow_stage: "exception"
-  }).eq("id", trackingId);
+  const { error } = await supabase
+    .from("tracking_exceptions")
+    .insert([{
+      tracking_id: trackingId,
+      exception_type,
+      severity,
+      status_raw: tracking?.last_status_raw || "-"
+    }]);
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  // Atualiza tracking principal
+  await supabase
+    .from("trackings")
+    .update({
+      status: "exception",
+      flow_stage: "exception"
+    })
+    .eq("id", trackingId);
 
   res.json({ ok: true });
 });
+
 
 
 /* =========================

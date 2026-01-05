@@ -187,7 +187,7 @@ checkBtn.onclick = () =>
   }
 
 async function criarExcecao(id) {
-  const tipo = prompt("Informe o tipo da exceção:");
+  const tipo = prompt("Tipo da exceção:");
   if (!tipo) return;
 
   const severidade = prompt("Severidade (low, medium, high):");
@@ -197,7 +197,10 @@ async function criarExcecao(id) {
     exception_type: tipo,
     severity: severidade
   });
+
+  carregar(); // recarrega tabela
 }
+
 
 
 
@@ -246,9 +249,18 @@ async function abrirHistorico(trackingId) {
 }
 
 
+
   /* =====================================================
      START
   ===================================================== */
 
   carregar();
 });
+const historyModal = document.getElementById("historyModal");
+const closeHistoryBtn = document.getElementById("closeHistoryBtn");
+
+if (closeHistoryBtn && historyModal) {
+  closeHistoryBtn.addEventListener("click", () => {
+    historyModal.classList.add("hidden");
+  });
+}
