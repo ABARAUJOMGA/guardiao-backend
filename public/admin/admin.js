@@ -1,158 +1,231 @@
-/* =========================
-   CONFIG
-========================= */
+document.addEventListener("DOMContentLoaded", () => {
+  /* =====================================================
+     ELEMENTOS
+  ===================================================== */
 
-// Mesma origem (funciona em local, Railway, Cloudflare)
-const API = "";
-const ADMIN_KEY = "guardiao-admin-123";
+  const rows = document.getElementById("rows");
+  const searchInput = document.getElementById("searchEmail");
 
-/* =========================
-   HELPERS
-========================= */
+  const prevPage = document.getElementById("prevPage");
+  const nextPage = document.getElementById("nextPage");
+  const pageInfo = document.getElementById("pageInfo");
 
-async function safeFetch(url, options = {}) {
-  const res = await fetch(url, options);
+  const historyModal = document.getElementById("historyModal");
+  const historyContent = document.getElementById("historyContent");
+  const closeHistoryBtn = historyModal.querySelector(".modal-close");
 
-  // Se o backend devolver HTML por engano, pegamos aqui
-  const contentType = res.headers.get("content-type") || "";
+  let page = 1;
+  const limit = 20;
+  let debounceTimer = null;
 
-  if (!contentType.includes("application/json")) {
-    const text = await res.text();
-    throw new Error(
-      "Resposta inválida do servidor (não é JSON).\n" +
-      "Provável fallback HTML.\n\n" +
-      text.slice(0, 200)
-    );
-  }
+  /* =====================================================
+     HELPERS
+  ===================================================== */
 
-  return res.json();
-}
-
-function qs(selector) {
-  return document.querySelector(selector);
-}
-
-/* =========================
-   LOAD TRACKINGS
-========================= */
-
-async function carregar() {
-  const tbody = qs("tbody");
-  tbody.innerHTML = "<tr><td colspan='4'>Carregando...</td></tr>";
-
-  try {
-    const data = await safeFetch("/admin/trackings", {
-      headers: {
-        "X-ADMIN-KEY": ADMIN_KEY
-      }
+  async function safeFetch(url, options = {}) {
+    const res = await fetch(url, {
+      credentials: "same-origin",
+      ...options
     });
 
-    if (!Array.isArray(data) || data.length === 0) {
-      tbody.innerHTML =
-        "<tr><td colspan='4'>Nenhum rastreio ativo.</td></tr>";
-      return;
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || "Erro inesperado");
     }
 
-    tbody.innerHTML = "";
+    return res.json();
+  }
 
-    data.forEach(t => {
-      const tr = document.createElement("tr");
+  function statusBadge(status) {
+    if (status === "active") return `<span class="badge active">ATIVO</span>`;
+    if (status === "exception") return `<span class="badge exception">EXCEÇÃO</span>`;
+    if (status === "delivered") return `<span class="badge delivered">ENTREGUE</span>`;
+    return status;
+  }
 
-      tr.innerHTML = `
-        <td>${t.tracking_code}</td>
-        <td>${t.last_status_raw || "-"}</td>
-        <td>${t.alert_sent ? "SIM" : "NÃO"}</td>
-        <td>
-          <button data-a="check1">1ª</button>
-          <button data-a="check2">2ª</button>
-          <button data-a="exception">Exceção</button>
-          <button data-a="email">Email</button>
-          <button data-a="delivered">Entregue</button>
-        </td>
-      `;
+  function loadingRow(text = "Carregando…") {
+    rows.innerHTML = `<tr><td colspan="6">${text}</td></tr>`;
+  }
 
-      tr.querySelector("[data-a='check1']").onclick =
-        () => post(`/admin/trackings/${t.id}/check`, { check_type: "first" });
+  /* =====================================================
+     LISTAGEM / BUSCA / PAGINAÇÃO
+  ===================================================== */
 
-      tr.querySelector("[data-a='check2']").onclick =
-        () => post(`/admin/trackings/${t.id}/check`, { check_type: "second" });
+  async function carregar() {
+    loadingRow();
 
-      tr.querySelector("[data-a='exception']").onclick =
-        () => criarExcecao(t.id);
-
-      tr.querySelector("[data-a='email']").onclick =
-        () => post(`/admin/trackings/${t.id}/send-email`);
-
-      tr.querySelector("[data-a='delivered']").onclick =
-        () => confirmarEntrega(t.id);
-
-      tbody.appendChild(tr);
+    const email = searchInput.value.trim();
+    const params = new URLSearchParams({
+      page,
+      limit
     });
 
-  } catch (err) {
-    console.error(err);
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="4" style="color:red;">
-          Erro ao carregar dados.<br>
-          ${err.message}
-        </td>
-      </tr>
-    `;
+    if (email) params.append("email", email);
+
+    try {
+      const data = await safeFetch(`/admin/trackings?${params.toString()}`);
+
+      if (!data.items || data.items.length === 0) {
+        loadingRow("Nenhum resultado encontrado.");
+        return;
+      }
+
+      pageInfo.innerText = `Página ${page}`;
+      rows.innerHTML = "";
+
+      data.items.forEach(t => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>${statusBadge(t.status)}</td>
+          <td>${t.tracking_code}</td>
+          <td>${t.users?.email || "-"}</td>
+          <td>${t.last_status_raw || "-"}</td>
+          <td>${t.alerts_count || 0}</td>
+          <td class="actions">
+            <button class="primary">Verificado</button>
+            <button class="warn">Exceção</button>
+            <button class="primary ${t.alert_sent ? "disabled" : ""}">
+              Email
+            </button>
+            <button class="ok">Entregue</button>
+            <button>Histórico</button>
+          </td>
+        `;
+
+        const [
+          checkBtn,
+          excBtn,
+          emailBtn,
+          delBtn,
+          histBtn
+        ] = tr.querySelectorAll("button");
+
+        checkBtn.onclick = () =>
+          post(`/admin/trackings/${t.id}/check`, {
+            check_type: "manual"
+          });
+
+        excBtn.onclick = () => criarExcecao(t.id);
+
+        emailBtn.onclick = () =>
+          post(`/admin/trackings/${t.id}/send-email`);
+
+        delBtn.onclick = () => {
+          if (confirm("Marcar como entregue?")) {
+            post(`/admin/trackings/${t.id}/delivered`);
+          }
+        };
+
+        histBtn.onclick = () => abrirHistorico(t.id);
+
+        rows.appendChild(tr);
+      });
+
+    } catch (err) {
+      loadingRow(`Erro: ${err.message}`);
+    }
   }
-}
 
-/* =========================
-   POST HELPERS
-========================= */
+  /* =====================================================
+     BUSCA COM DEBOUNCE
+  ===================================================== */
 
-async function post(path, body = {}) {
-  try {
-    await safeFetch(path, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-ADMIN-KEY": ADMIN_KEY
-      },
-      body: JSON.stringify(body)
-    });
-
-    carregar();
-
-  } catch (err) {
-    alert("Erro ao executar ação:\n\n" + err.message);
-  }
-}
-
-/* =========================
-   ACTIONS
-========================= */
-
-function criarExcecao(id) {
-  const status = prompt("Status bruto:");
-  if (!status) return;
-
-  const type = prompt("Tipo da exceção:");
-  if (!type) return;
-
-  const sev = prompt("Severidade (low, medium, high):");
-  if (!sev) return;
-
-  post(`/admin/trackings/${id}/exception`, {
-    status_raw: status,
-    exception_type: type,
-    severity: sev
+  searchInput.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      page = 1;
+      carregar();
+    }, 400);
   });
-}
 
-function confirmarEntrega(id) {
-  if (confirm("Marcar como entregue?")) {
-    post(`/admin/trackings/${id}/delivered`);
+  /* =====================================================
+     PAGINAÇÃO
+  ===================================================== */
+
+  prevPage.onclick = () => {
+    if (page > 1) {
+      page--;
+      carregar();
+    }
+  };
+
+  nextPage.onclick = () => {
+    page++;
+    carregar();
+  };
+
+  /* =====================================================
+     AÇÕES ADMIN (POST)
+  ===================================================== */
+
+  async function post(path, body = {}) {
+    try {
+      await safeFetch(path, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+      carregar();
+    } catch (err) {
+      alert("Erro: " + err.message);
+    }
   }
-}
 
-/* =========================
-   START
-========================= */
+  function criarExcecao(id) {
+    const status = prompt("Status bruto (ex: AGUARDANDO RETIRADA):");
+    if (!status) return;
 
-document.addEventListener("DOMContentLoaded", carregar);
+    const type = prompt("Tipo da exceção (ex: atraso, extravio):");
+    if (!type) return;
+
+    const severity = prompt("Severidade (low, medium, high):");
+    if (!severity) return;
+
+    post(`/admin/trackings/${id}/exception`, {
+      status_raw: status,
+      exception_type: type,
+      severity
+    });
+  }
+
+  /* =====================================================
+     HISTÓRICO
+  ===================================================== */
+
+  async function abrirHistorico(id) {
+    historyModal.classList.remove("hidden");
+    historyContent.innerHTML = "Carregando…";
+
+    try {
+      const data = await safeFetch(`/admin/trackings/${id}/history`);
+
+      if (!data.length) {
+        historyContent.innerHTML = "Nenhum histórico encontrado.";
+        return;
+      }
+
+      historyContent.innerHTML = data.map(e => `
+        <div style="margin-bottom:8px;">
+          <strong>${e.type}</strong><br/>
+          <small>${e.detail || ""}</small><br/>
+          <small>${new Date(e.created_at).toLocaleString()}</small>
+        </div>
+      `).join("");
+
+    } catch (err) {
+      historyContent.innerHTML = "Erro ao carregar histórico.";
+    }
+  }
+
+  closeHistoryBtn.onclick = () =>
+    historyModal.classList.add("hidden");
+
+  /* =====================================================
+     START
+  ===================================================== */
+
+  carregar();
+});

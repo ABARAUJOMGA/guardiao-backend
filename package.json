@@ -8,8 +8,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.43.4",
+    "basic-auth": "^2.0.1",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "express-rate-limit": "^8.2.1",
     "nodemailer": "^6.9.8",
     "resend": "^6.6.0"
   }

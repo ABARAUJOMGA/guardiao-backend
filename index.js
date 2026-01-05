@@ -3,6 +3,7 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
+import rateLimit from "express-rate-limit";
 
 import { rodarMonitoramento } from "./monitor.js";
 import { enviarEmail } from "./mailer.js";
@@ -43,6 +44,7 @@ app.use((req, res, next) => {
 ========================= */
 app.use(express.json());
 
+
 const allowedOrigins = [
   "https://guardiaorastreamento.com.br",
   "https://www.guardiaorastreamento.com.br",
@@ -60,11 +62,26 @@ app.use(
       return callback(new Error("Not allowed by CORS"));
     },
     methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "X-ADMIN-KEY"]
+    allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
 
 app.options("*", cors());
+
+/* =========================
+   RATE LIMIT (ADMIN)
+========================= */
+
+
+const adminLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 60,             // 60 requests por IP
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use("/admin", adminLimiter);
+
 
 /* =========================
    FRONTEND ESTÁTICO

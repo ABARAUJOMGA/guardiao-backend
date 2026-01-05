@@ -2,26 +2,64 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Painel Guardião — Verificações</title>
-  <link rel="stylesheet" href="admin.css?v=1">
-
+  <title>Guardião — Painel Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="admin.css?v=2">
 </head>
 <body>
 
-<h2>Painel Guardião — Verificações</h2>
+<header class="admin-header">
+  <h1>Guardião — Painel Admin</h1>
 
-<table id="tabela">
-  <thead>
-    <tr>
-      <th>Código</th>
-      <th>Status bruto</th>
-      <th>Alerta</th>
-      <th>Ações</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
+  <div class="search-box">
+    <input
+      type="email"
+      id="searchEmail"
+      placeholder="Buscar por email do cliente…"
+      autocomplete="off"
+    />
+    <div id="autocomplete" class="autocomplete hidden"></div>
+  </div>
+</header>
 
-<script src="admin.js?v=1"></script>
+<section class="admin-container">
+
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Código</th>
+        <th>Email do cliente</th>
+        <th>Último status</th>
+        <th>Alertas</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody id="rows">
+      <tr>
+        <td colspan="6">Carregando…</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="pagination">
+    <button id="prevPage">← Anterior</button>
+    <span id="pageInfo">Página 1</span>
+    <button id="nextPage">Próxima →</button>
+  </div>
+
+</section>
+
+<!-- MODAL HISTÓRICO -->
+<div id="historyModal" class="modal hidden">
+  <div class="modal-overlay"></div>
+  <div class="modal-box wide">
+    <button class="modal-close">×</button>
+    <h2>Histórico do rastreio</h2>
+    <div id="historyContent">Carregando…</div>
+  </div>
+</div>
+
+<script src="admin.js?v=2"></script>
 </body>
 </html>
