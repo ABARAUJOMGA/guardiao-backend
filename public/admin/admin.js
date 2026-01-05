@@ -197,14 +197,13 @@ async function criarExcecao(trackingId) {
     // se falhar, segue sem reaproveitamento
   }
 
-  const tiposExistentes = [
-    ...new Set(
-      historico
-        .filter(e => e.type === "EXCEÇÃO")
-        .map(e => e.detail)
-        .filter(Boolean)
-    )
-  ];
+const tiposExistentes = [
+  ...new Set(
+    (historico.exceptions || [])
+      .map(e => e.exception_type)
+      .filter(Boolean)
+  )
+];
 
   let mensagem = "Selecione o tipo de exceção:\n\n";
 
