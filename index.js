@@ -308,6 +308,72 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
 });
 
 
+app.get("/admin/trackings/:id/history", adminAuth, async (req, res) => {
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase indisponível" });
+  }
+
+  const trackingId = req.params.id;
+
+  const [checks, exceptions, emails] = await Promise.all([
+    supabase
+      .from("tracking_checks")
+      .select("*")
+      .eq("tracking_id", trackingId)
+      .order("created_at", { ascending: false }),
+
+    supabase
+      .from("tracking_exceptions")
+      .select("*")
+      .eq("tracking_id", trackingId)
+      .order("created_at", { ascending: false }),
+
+    supabase
+      .from("tracking_emails")
+      .select("*")
+      .eq("tracking_id", trackingId)
+      .order("created_at", { ascending: false })
+  ]);
+
+  res.json({
+    checks: checks.data || [],
+    exceptions: exceptions.data || [],
+    emails: emails.data || []
+  });
+});
+
+
+app.get("/admin/exceptions/templates", adminAuth, async (req, res) => {
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase indisponível" });
+  }
+
+  const { data, error } = await supabase
+    .from("tracking_exceptions")
+    .select("exception_type, severity, status_raw")
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  // remove duplicadas
+  const unique = [];
+  const seen = new Set();
+
+  for (const e of data) {
+    const key = `${e.exception_type}|${e.severity}|${e.status_raw}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(e);
+    }
+  }
+
+  res.json(unique);
+});
+
+
 /* =========================
    ADMIN — CHECK MANUAL
 ========================= */
