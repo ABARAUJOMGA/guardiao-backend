@@ -1,41 +1,11 @@
 document.addEventListener("DOMContentLoaded", () => {
   const PLAN_LINK = "https://mpago.li/1XoZc56";
+
   let pendingTrackingCode = null;
   let currentUser = null;
 
   const $ = id => document.getElementById(id);
   const safe = (el, fn) => el && el.addEventListener("click", fn);
-
-async function updatePlanStatus(user) {
-  const box = document.getElementById("planStatus");
-  const planName = document.getElementById("planName");
-  const planUsage = document.getElementById("planUsage");
-
-  if (!box || !user) return;
-
-  const isEssential = user.plan === "essential";
-  const limit = isEssential ? 50 : 1;
-
-  let trackings = [];
-  try {
-    const res = await fetch(`/trackings/${user.id}`);
-    trackings = await res.json();
-  } catch {}
-
-  const activeCount = Array.isArray(trackings)
-    ? trackings.filter(t => t.status === "active").length
-    : 0;
-
-  planName.innerText =
-    `Plano atual: ${isEssential ? "Essencial" : "Gratuito"}`;
-
-  planUsage.innerText =
-    `Uso atual: ${activeCount} de ${limit} envios`;
-
-  box.classList.remove("hidden");
-}
-
-
 
   function setLoading(btn, on = true) {
     if (!btn) return;
@@ -49,47 +19,70 @@ async function updatePlanStatus(user) {
     }
   }
 
+  /* =========================
+     STATUS DO PLANO (3A)
+  ========================= */
+
   async function updatePlanStatus(user) {
     const box = $("planStatus");
-    const name = $("planName");
-    const usage = $("planUsage");
+    const planName = $("planName");
+    const planUsage = $("planUsage");
 
-    if (!user || !box) return;
+    if (!box || !user) return;
 
-    const limit = user.plan === "essential" ? 50 : 1;
+    const isEssential = user.plan === "essential";
+    const limit = isEssential ? 50 : 1;
 
-    const trackings = await fetch(`/trackings/${user.id}`)
-      .then(r => r.json())
-      .catch(() => []);
+    let trackings = [];
+    try {
+      const res = await fetch(`/trackings/${user.id}`);
+      trackings = await res.json();
+    } catch {}
 
     const activeCount = Array.isArray(trackings)
       ? trackings.filter(t => t.status === "active").length
       : 0;
 
-    name.innerText =
-      `Plano atual: ${user.plan === "essential" ? "Essencial" : "Gratuito"}`;
+    planName.innerText =
+      `Plano atual: ${isEssential ? "Essencial" : "Gratuito"}`;
 
-    usage.innerText =
-      `Envios ativos: ${activeCount} de ${limit}`;
+    planUsage.innerText =
+      `Uso atual: ${activeCount} de ${limit} envios`;
 
     box.classList.remove("hidden");
   }
 
+  /* =========================
+     ELEMENTOS
+  ========================= */
+
   const startForm = $("startTrackingForm");
   const trackingInput = $("trackingCode");
+
   const identifyModal = $("identifyModal");
   const identifyStep = $("identifyStep");
   const successStep = $("successStep");
+
   const userEmail = $("userEmail");
   const confirmIdentify = $("confirmIdentify");
   const cancelIdentify = $("cancelIdentify");
+
   const goToPlan = $("goToPlan");
   const subscribePlan = $("subscribePlan");
 
+  /* =========================
+     FLUXO PRINCIPAL
+  ========================= */
+
   startForm?.addEventListener("submit", e => {
     e.preventDefault();
+
     pendingTrackingCode = trackingInput.value.trim();
-    if (!pendingTrackingCode) return alert("Informe o código.");
+    if (!pendingTrackingCode) {
+      alert("Informe o código de rastreamento.");
+      return;
+    }
+
     identifyStep.classList.remove("hidden");
     successStep.classList.add("hidden");
     identifyModal.classList.remove("hidden");
@@ -99,13 +92,20 @@ async function updatePlanStatus(user) {
 
   safe(confirmIdentify, async () => {
     setLoading(confirmIdentify, true);
+
     try {
+      // Cria ou recupera usuário
       currentUser = await fetch("/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: userEmail.value })
       }).then(r => r.json());
 
+      // Salva para a página 3B
+      localStorage.setItem("guardiao_user_id", currentUser.id);
+      localStorage.setItem("guardiao_user_plan", currentUser.plan);
+
+      // Cria rastreamento
       const res = await fetch("/trackings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -117,7 +117,7 @@ async function updatePlanStatus(user) {
 
       if (!res.ok) {
         const err = await res.json();
-        alert(err.error || "Limite atingido.");
+        alert(err.error || "Limite de envios atingido.");
         return;
       }
 
@@ -126,12 +126,17 @@ async function updatePlanStatus(user) {
 
       await updatePlanStatus(currentUser);
 
-    } catch {
+    } catch (err) {
+      console.error(err);
       alert("Erro ao ativar monitoramento.");
     } finally {
       setLoading(confirmIdentify, false);
     }
   });
+
+  /* =========================
+     UPGRADE
+  ========================= */
 
   [goToPlan, subscribePlan].forEach(btn =>
     safe(btn, () => {
@@ -140,11 +145,19 @@ async function updatePlanStatus(user) {
     })
   );
 
+  /* =========================
+     MODAIS
+  ========================= */
+
   document.querySelectorAll(".modal-close").forEach(btn =>
     btn.addEventListener("click", () =>
       btn.closest(".modal").classList.add("hidden")
     )
   );
+
+  /* =========================
+     SUPORTE
+  ========================= */
 
   const supportBtn = $("supportBtn");
   const supportModal = $("supportModal");
@@ -154,6 +167,7 @@ async function updatePlanStatus(user) {
 
   supportForm?.addEventListener("submit", async e => {
     e.preventDefault();
+
     await fetch("/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -166,7 +180,8 @@ async function updatePlanStatus(user) {
         }
       })
     });
-    alert("Mensagem enviada.");
+
+    alert("Mensagem enviada com sucesso.");
     supportModal.classList.add("hidden");
   });
 });
