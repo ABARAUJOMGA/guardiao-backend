@@ -235,7 +235,7 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
 
   let userIds = null;
 
-  // 1️⃣ Se houver busca por email, resolve usuários primeiro
+  // Resolver usuários por email (se houver filtro)
   if (email) {
     const { data: users, error: userError } = await supabase
       .from("users")
@@ -258,18 +258,10 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
     userIds = users.map(u => u.id);
   }
 
-  // 2️⃣ Busca trackings
+  // Buscar trackings SEM joins perigosos
   let query = supabase
     .from("trackings")
-    .select(
-      `
-      *,
-      users(email),
-      tracking_exceptions(count),
-      tracking_emails(count)
-      `,
-      { count: "exact" }
-    )
+    .select("*, users(email)", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -277,21 +269,41 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
     query = query.in("user_id", userIds);
   }
 
-  const { data, count, error } = await query;
+  const { data: trackings, count, error } = await query;
 
   if (error) {
     return res.status(500).json({ error: error.message });
+  }
+
+  // Contagens manuais (seguras)
+  const items = [];
+
+  for (const t of trackings) {
+    const [{ count: exceptionsCount }, { count: emailsCount }] =
+      await Promise.all([
+        supabase
+          .from("tracking_exceptions")
+          .select("*", { count: "exact", head: true })
+          .eq("tracking_id", t.id),
+
+        supabase
+          .from("tracking_emails")
+          .select("*", { count: "exact", head: true })
+          .eq("tracking_id", t.id)
+      ]);
+
+    items.push({
+      ...t,
+      exceptions_count: exceptionsCount || 0,
+      alerts_count: emailsCount || 0
+    });
   }
 
   res.json({
     page,
     limit,
     total: count,
-    items: data.map(t => ({
-      ...t,
-      alerts_count: t.tracking_emails?.[0]?.count || 0,
-      exceptions_count: t.tracking_exceptions?.[0]?.count || 0
-    }))
+    items
   });
 });
 
