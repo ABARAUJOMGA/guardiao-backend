@@ -223,6 +223,29 @@ button {
   gap: 6px;
 }
 
+.actions-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-back {
+  background: #e5e7eb;
+  color: #111;
+  padding: 12px 18px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background 0.15s ease;
+}
+
+.btn-back:hover {
+  background: #d1d5db;
+}
+
+
 .support-field label {
   font-size: 13px;
   font-weight: 600;

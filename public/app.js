@@ -1,37 +1,72 @@
 document.addEventListener("DOMContentLoaded", () => {
   const PLAN_LINK = "https://mpago.li/1XoZc56";
 
-  let pendingTrackingCode = null;
-  let currentUser = null;
+  /* =====================================================
+     HELPERS
+  ===================================================== */
 
   const $ = id => document.getElementById(id);
-  const safe = (el, fn) => el && el.addEventListener("click", fn);
 
   function setLoading(btn, on = true) {
     if (!btn) return;
     if (on) {
       btn.classList.add("btn-loading");
-      btn.dataset.txt = btn.innerText;
+      btn.dataset.originalText = btn.innerText;
       btn.innerText = "Processando...";
     } else {
       btn.classList.remove("btn-loading");
-      btn.innerText = btn.dataset.txt || btn.innerText;
+      btn.innerText = btn.dataset.originalText || btn.innerText;
     }
   }
 
-  /* =========================
-     STATUS DO PLANO (3A)
-  ========================= */
+  function getStoredUser() {
+    const id = localStorage.getItem("guardiao_user_id");
+    const plan = localStorage.getItem("guardiao_user_plan");
+    if (!id || !plan) return null;
+    return { id, plan };
+  }
 
-  async function updatePlanStatus(user) {
-    const box = $("planStatus");
-    const planName = $("planName");
-    const planUsage = $("planUsage");
+  function storeUser(user) {
+    localStorage.setItem("guardiao_user_id", user.id);
+    localStorage.setItem("guardiao_user_plan", user.plan);
+  }
 
-    if (!box || !user) return;
+  /* =====================================================
+     ELEMENTOS DA TELA
+  ===================================================== */
+
+  const startForm = $("startTrackingForm");
+  const trackingInput = $("trackingCode");
+
+  const planStatusBox = $("planStatus");
+  const planName = $("planName");
+  const planUsage = $("planUsage");
+  const myTrackingsBtn = $("myTrackingsBtn");
+
+  const identifyModal = $("identifyModal");
+  const identifyStep = $("identifyStep");
+  const successStep = $("successStep");
+
+  const userEmailInput = $("userEmail");
+  const confirmIdentifyBtn = $("confirmIdentify");
+  const cancelIdentifyBtn = $("cancelIdentify");
+
+  const subscribePlanBtn = $("subscribePlan");
+  const goToPlanBtn = $("goToPlan");
+
+  const supportBtn = $("supportBtn");
+  const supportModal = $("supportModal");
+  const supportForm = $("supportForm");
+
+  /* =====================================================
+     STATUS DO PLANO (HOME)
+  ===================================================== */
+
+  async function atualizarStatusPlano(user) {
+    if (!planStatusBox) return;
 
     const isEssential = user.plan === "essential";
-    const limit = isEssential ? 50 : 1;
+    const limite = isEssential ? 50 : 1;
 
     let trackings = [];
     try {
@@ -39,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
       trackings = await res.json();
     } catch {}
 
-    const activeCount = Array.isArray(trackings)
+    const ativos = Array.isArray(trackings)
       ? trackings.filter(t => t.status === "active").length
       : 0;
 
@@ -47,175 +82,158 @@ document.addEventListener("DOMContentLoaded", () => {
       `Plano atual: ${isEssential ? "Essencial" : "Gratuito"}`;
 
     planUsage.innerText =
-      `Uso atual: ${activeCount} de ${limit} envios`;
+      `Uso atual: ${ativos} de ${limite} envios`;
 
-    box.classList.remove("hidden");
+    planStatusBox.classList.remove("hidden");
   }
 
-  /* =========================
-     ELEMENTOS
-  ========================= */
+  /* =====================================================
+     IDENTIFICAÇÃO POR EMAIL (GENÉRICA)
+  ===================================================== */
 
-  const startForm = $("startTrackingForm");
-  const trackingInput = $("trackingCode");
+  async function identificarUsuario(email) {
+    const res = await fetch("/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
 
-  const identifyModal = $("identifyModal");
-  const identifyStep = $("identifyStep");
-  const successStep = $("successStep");
+    if (!res.ok) {
+      throw new Error("Erro ao identificar usuário");
+    }
 
-  const userEmail = $("userEmail");
-  const confirmIdentify = $("confirmIdentify");
-  const cancelIdentify = $("cancelIdentify");
+    const user = await res.json();
+    storeUser(user);
+    return user;
+  }
 
-  const goToPlan = $("goToPlan");
-  const subscribePlan = $("subscribePlan");
+  function abrirModalIdentificacao({ titulo, texto }) {
+    identifyStep.querySelector("h3").innerText = titulo;
+    identifyStep.querySelector(".modal-text").innerText = texto;
 
-  /* =========================
-     FLUXO PRINCIPAL
-  ========================= */
+    identifyStep.classList.remove("hidden");
+    successStep.classList.add("hidden");
+    identifyModal.classList.remove("hidden");
+  }
+
+  function fecharModalIdentificacao() {
+    identifyModal.classList.add("hidden");
+    userEmailInput.value = "";
+  }
+
+  /* =====================================================
+     FLUXO 1 — CRIAR RASTREAMENTO
+  ===================================================== */
+
+  let pendingTrackingCode = null;
 
   startForm?.addEventListener("submit", e => {
     e.preventDefault();
 
-    pendingTrackingCode = trackingInput.value.trim();
-    if (!pendingTrackingCode) {
+    const code = trackingInput.value.trim();
+    if (!code) {
       alert("Informe o código de rastreamento.");
       return;
     }
 
-    identifyStep.classList.remove("hidden");
-    successStep.classList.add("hidden");
-    identifyModal.classList.remove("hidden");
+    pendingTrackingCode = code;
+
+    abrirModalIdentificacao({
+      titulo: "Ativar monitoramento",
+      texto: "Precisamos do seu email para avisar caso algo saia do normal."
+    });
   });
 
-  safe(cancelIdentify, () => identifyModal.classList.add("hidden"));
+  /* =====================================================
+     CONFIRMAR EMAIL (CRIA OU ACESSA)
+  ===================================================== */
 
-  safe(confirmIdentify, async () => {
-    setLoading(confirmIdentify, true);
+  confirmIdentifyBtn?.addEventListener("click", async () => {
+    const email = userEmailInput.value.trim();
+    if (!email) {
+      alert("Informe o email.");
+      return;
+    }
+
+    setLoading(confirmIdentifyBtn, true);
 
     try {
-      // Cria ou recupera usuário
-      currentUser = await fetch("/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: userEmail.value })
-      }).then(r => r.json());
+      const user = await identificarUsuario(email);
 
-      // Salva para a página 3B
-      localStorage.setItem("guardiao_user_id", currentUser.id);
-      localStorage.setItem("guardiao_user_plan", currentUser.plan);
+      // Se existe código pendente, cria rastreamento
+      if (pendingTrackingCode) {
+        const res = await fetch("/trackings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: user.id,
+            tracking_code: pendingTrackingCode
+          })
+        });
 
-      // Cria rastreamento
-      const res = await fetch("/trackings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: currentUser.id,
-          tracking_code: pendingTrackingCode
-        })
-      });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.error || "Erro ao criar rastreamento.");
+          return;
+        }
 
-      if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || "Limite de envios atingido.");
-        return;
+        identifyStep.classList.add("hidden");
+        successStep.classList.remove("hidden");
+
+        await atualizarStatusPlano(user);
+        pendingTrackingCode = null;
+      } else {
+        // Caso seja só acesso
+        window.location.href = "/meus-rastreamentos.html";
       }
 
-      identifyStep.classList.add("hidden");
-      successStep.classList.remove("hidden");
-
-      await updatePlanStatus(currentUser);
-
     } catch (err) {
-      console.error(err);
-      alert("Erro ao ativar monitoramento.");
+      alert("Erro ao processar solicitação.");
     } finally {
-      setLoading(confirmIdentify, false);
+      setLoading(confirmIdentifyBtn, false);
     }
   });
 
-  /* =========================
-     UPGRADE
-  ========================= */
+  cancelIdentifyBtn?.addEventListener("click", fecharModalIdentificacao);
 
-  [goToPlan, subscribePlan].forEach(btn =>
-    safe(btn, () => {
-      alert("Após o pagamento, a ativação ocorre em até 24h úteis.");
-      window.location.href = PLAN_LINK;
-    })
-  );
+  /* =====================================================
+     FLUXO 2 — VER MEUS RASTREAMENTOS (SEM CRIAR)
+  ===================================================== */
 
-  /* =========================
-     MODAIS
-  ========================= */
+  myTrackingsBtn?.addEventListener("click", () => {
+    const stored = getStoredUser();
 
-  document.querySelectorAll(".modal-close").forEach(btn =>
-    btn.addEventListener("click", () =>
-      btn.closest(".modal").classList.add("hidden")
-    )
-  );
-
-
-/* =========================
-   VER MEUS RASTREAMENTOS
-========================= */
-
-const myTrackingsBtn = document.getElementById("myTrackingsBtn");
-
-if (myTrackingsBtn) {
-  myTrackingsBtn.addEventListener("click", () => {
-    const storedUserId = localStorage.getItem("guardiao_user_id");
-
-    // Usuário já conhecido → acesso direto
-    if (storedUserId) {
+    if (stored) {
       window.location.href = "/meus-rastreamentos.html";
       return;
     }
 
-    // Usuário não identificado → usar modal existente
-    identifyStep.classList.remove("hidden");
-    successStep.classList.add("hidden");
-    identifyModal.classList.remove("hidden");
+    pendingTrackingCode = null;
 
-    // Sobrescreve comportamento do botão de confirmação APENAS UMA VEZ
-    const handler = async () => {
-      setLoading(confirmIdentify, true);
-
-      try {
-        const user = await fetch("/users", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: userEmail.value })
-        }).then(r => r.json());
-
-        localStorage.setItem("guardiao_user_id", user.id);
-        localStorage.setItem("guardiao_user_plan", user.plan);
-
-        window.location.href = "/meus-rastreamentos.html";
-      } catch (err) {
-        alert("Erro ao identificar usuário.");
-      } finally {
-        setLoading(confirmIdentify, false);
-        confirmIdentify.removeEventListener("click", handler);
-      }
-    };
-
-    confirmIdentify.addEventListener("click", handler);
+    abrirModalIdentificacao({
+      titulo: "Acessar meus rastreamentos",
+      texto: "Informe seu email para acessar seus rastreamentos existentes."
+    });
   });
-}
 
+  /* =====================================================
+     UPGRADE DE PLANO
+  ===================================================== */
 
+  [subscribePlanBtn, goToPlanBtn].forEach(btn => {
+    btn?.addEventListener("click", () => {
+      alert("Após o pagamento, a ativação ocorre em até 24h úteis.");
+      window.location.href = PLAN_LINK;
+    });
+  });
 
-
-  /* =========================
+  /* =====================================================
      SUPORTE
-  ========================= */
+  ===================================================== */
 
-  const supportBtn = $("supportBtn");
-  const supportModal = $("supportModal");
-  const supportForm = $("supportForm");
-
-  safe(supportBtn, () => supportModal.classList.remove("hidden"));
+  supportBtn?.addEventListener("click", () => {
+    supportModal.classList.remove("hidden");
+  });
 
   supportForm?.addEventListener("submit", async e => {
     e.preventDefault();
@@ -236,4 +254,23 @@ if (myTrackingsBtn) {
     alert("Mensagem enviada com sucesso.");
     supportModal.classList.add("hidden");
   });
+
+  /* =====================================================
+     FECHAR MODAIS (X)
+  ===================================================== */
+
+  document.querySelectorAll(".modal-close").forEach(btn =>
+    btn.addEventListener("click", () =>
+      btn.closest(".modal").classList.add("hidden")
+    )
+  );
+
+  /* =====================================================
+     BOOTSTRAP — USUÁRIO JÁ CONHECIDO
+  ===================================================== */
+
+  const storedUser = getStoredUser();
+  if (storedUser) {
+    atualizarStatusPlano(storedUser);
+  }
 });
