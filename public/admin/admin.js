@@ -186,67 +186,71 @@ checkBtn.onclick = () =>
     }
   }
 
-async function criarExcecao(id) {
-  const templates = await safeFetch("/admin/exceptions/templates");
+async function criarExcecao(trackingId) {
+  // 1️⃣ Buscar histórico para reaproveitar exceções
+  let historico = [];
+  try {
+    historico = await safeFetch(
+      `/admin/trackings/${trackingId}/history`
+    );
+  } catch {
+    // se falhar, segue sem reaproveitamento
+  }
 
-  let msg = "Escolha um tipo existente ou escreva um novo:\n\n";
+  const tiposExistentes = [
+    ...new Set(
+      historico
+        .filter(e => e.type === "EXCEÇÃO")
+        .map(e => e.detail)
+        .filter(Boolean)
+    )
+  ];
 
-  templates.forEach((t, i) => {
-    msg += `${i + 1}. ${t.exception_type} (${t.severity})\n`;
+  let mensagem = "Selecione o tipo de exceção:\n\n";
+
+  tiposExistentes.forEach((t, i) => {
+    mensagem += `${i + 1} - ${t}\n`;
   });
 
-  msg += "\nDigite o número ou escreva um novo tipo:";
+  mensagem += `\n0 - Criar nova exceção`;
 
-  const choice = prompt(msg);
-  if (!choice) return;
+  const escolha = prompt(mensagem);
+  if (escolha === null) return;
 
   let exception_type;
-  let severity;
 
-  const index = parseInt(choice, 10) - 1;
-
-  if (!isNaN(index) && templates[index]) {
-    exception_type = templates[index].exception_type;
-    severity = templates[index].severity;
+  if (escolha === "0") {
+    exception_type = prompt("Digite o nome da nova exceção:");
+    if (!exception_type) return;
   } else {
-    exception_type = choice;
-
-    const sev = prompt(
-      "Severidade:\n1 = Baixa\n2 = Média\n3 = Alta"
-    );
-
-    if (sev === "1") severity = "low";
-    else if (sev === "2") severity = "medium";
-    else if (sev === "3") severity = "high";
-    else return alert("Severidade inválida");
+    const index = parseInt(escolha) - 1;
+    if (!tiposExistentes[index]) {
+      alert("Opção inválida.");
+      return;
+    }
+    exception_type = tiposExistentes[index];
   }
 
-  await post(`/admin/trackings/${id}/exception`, {
+  // 2️⃣ Severidade controlada
+  const sev = prompt(
+    "Severidade:\n1 = Baixa\n2 = Média\n3 = Alta"
+  );
+
+  let severity;
+  if (sev === "1") severity = "low";
+  else if (sev === "2") severity = "medium";
+  else if (sev === "3") severity = "high";
+  else {
+    alert("Severidade inválida.");
+    return;
+  }
+
+  // 3️⃣ Enviar exceção
+  await post(`/admin/trackings/${trackingId}/exception`, {
     exception_type,
     severity
   });
-
-  carregar();
 }
-
-// após inserir a exceção
-await supabase.from("tracking_emails").insert([{
-  tracking_id: trackingId,
-  type: "exception",
-  payload: {
-    exception_type,
-    severity
-  }
-}]);
-
-// dispara email
-await enviarEmailExcecao({
-  tracking_id: trackingId,
-  exception_type,
-  severity
-});
-
-
 
 
 
