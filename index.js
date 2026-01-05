@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
-import { createClient } from "@supabase/supabase-js";
 import path from "path";
 import { fileURLToPath } from "url";
+import { createClient } from "@supabase/supabase-js";
 
 import { rodarMonitoramento } from "./monitor.js";
 import { enviarEmail } from "./mailer.js";
@@ -18,7 +18,7 @@ const app = express();
 app.set("trust proxy", 1);
 
 /* =========================
-   CSP (VERSÃO CORRETA E COMPATÍVEL)
+   CSP (MANTIDO 100%)
 ========================= */
 app.use((req, res, next) => {
   res.setHeader(
@@ -72,27 +72,49 @@ app.options("*", cors());
 app.use(express.static(path.join(__dirname, "public")));
 
 /* =========================
-   SUPABASE
+   SUPABASE (RESILIENTE)
 ========================= */
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error("❌ Variáveis do Supabase não configuradas");
+let supabase = null;
+
+if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  console.log("✅ Supabase conectado");
+} else {
+  console.warn("⚠️ Supabase NÃO configurado (ambiente local)");
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+/* =========================
+   GUARD GLOBAL
+========================= */
+function requireSupabase(req, res) {
+  if (!supabase) {
+    res.status(503).json({
+      error: "Serviço indisponível no ambiente atual"
+    });
+    return false;
+  }
+  return true;
+}
 
 /* =========================
    HEALTH CHECK
 ========================= */
 app.get("/health", (req, res) => {
-  res.json({ status: "VERSAO NOVA - DEPLOY OK" });
+  res.json({
+    status: "VERSAO NOVA - DEPLOY OK",
+    supabase: !!supabase
+  });
 });
+
 /* =========================
    USERS
 ========================= */
 app.post("/users", async (req, res) => {
+  if (!requireSupabase(req, res)) return;
+
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: "Email obrigatório" });
 
@@ -118,6 +140,8 @@ app.post("/users", async (req, res) => {
    TRACKINGS (CRIAR)
 ========================= */
 app.post("/trackings", async (req, res) => {
+  if (!requireSupabase(req, res)) return;
+
   const { user_id, tracking_code } = req.body;
   if (!user_id || !tracking_code) {
     return res.status(400).json({ error: "Dados obrigatórios" });
@@ -157,6 +181,8 @@ app.post("/trackings", async (req, res) => {
    TRACKINGS (LISTAR DO USUÁRIO)
 ========================= */
 app.get("/trackings/:user_id", async (req, res) => {
+  if (!requireSupabase(req, res)) return;
+
   const { user_id } = req.params;
 
   const { data, error } = await supabase
@@ -181,6 +207,8 @@ app.post("/run-monitor", async (req, res) => {
    ADMIN — LISTAR TRACKINGS
 ========================= */
 app.get("/admin/trackings", adminAuth, async (req, res) => {
+  if (!requireSupabase(req, res)) return;
+
   const { data, error } = await supabase
     .from("trackings")
     .select("*, users(email)")
@@ -195,6 +223,8 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
    ADMIN — CHECK MANUAL
 ========================= */
 app.post("/admin/trackings/:id/check", adminAuth, async (req, res) => {
+  if (!requireSupabase(req, res)) return;
+
   const { check_type } = req.body;
 
   await supabase.from("tracking_checks").insert([{
@@ -209,6 +239,8 @@ app.post("/admin/trackings/:id/check", adminAuth, async (req, res) => {
    ADMIN — EXCEPTION
 ========================= */
 app.post("/admin/trackings/:id/exception", adminAuth, async (req, res) => {
+  if (!requireSupabase(req, res)) return;
+
   const { exception_type, severity, status_raw } = req.body;
 
   await supabase.from("tracking_exceptions").insert([{
@@ -230,6 +262,8 @@ app.post("/admin/trackings/:id/exception", adminAuth, async (req, res) => {
    ADMIN — SEND EMAIL
 ========================= */
 app.post("/admin/trackings/:id/send-email", adminAuth, async (req, res) => {
+  if (!requireSupabase(req, res)) return;
+
   const trackingId = req.params.id;
 
   const { data: tracking } = await supabase
@@ -248,8 +282,6 @@ app.post("/admin/trackings/:id/send-email", adminAuth, async (req, res) => {
     text: `
 Código: ${tracking.tracking_code}
 Status: ${tracking.last_status_raw || "Não informado"}
-
-Plano Essencial permite até 50 monitoramentos ativos.
     `
   });
 
@@ -264,6 +296,8 @@ Plano Essencial permite até 50 monitoramentos ativos.
    ADMIN — DELIVERED
 ========================= */
 app.post("/admin/trackings/:id/delivered", adminAuth, async (req, res) => {
+  if (!requireSupabase(req, res)) return;
+
   await supabase.from("trackings").update({
     status: "delivered",
     delivered_at: new Date().toISOString()
@@ -276,6 +310,8 @@ app.post("/admin/trackings/:id/delivered", adminAuth, async (req, res) => {
    EVENTS (SUPORTE)
 ========================= */
 app.post("/events", async (req, res) => {
+  if (!requireSupabase(req, res)) return;
+
   const { type, payload } = req.body;
 
   await supabase.from("events").insert([{ type, payload }]);
@@ -298,13 +334,9 @@ ${payload.message}
 });
 
 /* =========================
-   FRONTEND FALLBACK
-========================= */
-/* =========================
-   FRONTEND FALLBACK (APENAS FRONT)
+   FRONTEND FALLBACK (SEM PEGAR ADMIN)
 ========================= */
 app.get("*", (req, res) => {
-  // NÃO deixar o fallback pegar o admin
   if (req.path.startsWith("/admin")) {
     return res.status(404).end();
   }
