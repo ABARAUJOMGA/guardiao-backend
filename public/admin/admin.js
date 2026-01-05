@@ -22,19 +22,23 @@ document.addEventListener("DOMContentLoaded", () => {
      HELPERS
   ===================================================== */
 
-  async function safeFetch(url, options = {}) {
-    const res = await fetch(url, {
-      credentials: "same-origin",
-      ...options
-    });
+async function safeFetch(url, options = {}) {
+  const res = await fetch(url, {
+    credentials: "same-origin",
+    headers: {
+      "X-ADMIN-KEY": ADMIN_KEY,
+      ...(options.headers || {})
+    },
+    ...options
+  });
 
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(text || "Erro inesperado");
-    }
-
-    return res.json();
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "Erro inesperado");
   }
+
+  return res.json();
+}
 
   function statusBadge(status) {
     if (status === "active") return `<span class="badge active">ATIVO</span>`;
@@ -174,54 +178,81 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function criarExcecao(id) {
-    const status = prompt("Status bruto (ex: AGUARDANDO RETIRADA):");
+async function criarExcecao(id) {
+  const templates = await safeFetch("/admin/exceptions/templates", {
+    headers: { "X-ADMIN-KEY": ADMIN_KEY }
+  });
+
+  let msg = "Escolha uma exceção existente ou crie nova:\n\n";
+  templates.forEach((t, i) => {
+    msg += `${i + 1}. ${t.exception_type} | ${t.severity} | ${t.status_raw}\n`;
+  });
+
+  msg += "\nDigite o número ou deixe vazio para criar nova:";
+  const choice = prompt(msg);
+
+  let payload;
+
+  if (choice && templates[choice - 1]) {
+    payload = templates[choice - 1];
+  } else {
+    const status = prompt("Status bruto:");
     if (!status) return;
 
-    const type = prompt("Tipo da exceção (ex: atraso, extravio):");
+    const type = prompt("Tipo da exceção:");
     if (!type) return;
 
-    const severity = prompt("Severidade (low, medium, high):");
-    if (!severity) return;
+    const sev = prompt("Severidade (low, medium, high):");
+    if (!sev) return;
 
-    post(`/admin/trackings/${id}/exception`, {
+    payload = {
       status_raw: status,
       exception_type: type,
-      severity
-    });
+      severity: sev
+    };
   }
+
+  await post(`/admin/trackings/${id}/exception`, payload);
+}
+
 
   /* =====================================================
      HISTÓRICO
   ===================================================== */
 
-  async function abrirHistorico(id) {
+async function abrirHistorico(trackingId) {
+  try {
     historyModal.classList.remove("hidden");
-    historyContent.innerHTML = "Carregando…";
+    historyContent.innerHTML = "Carregando histórico…";
 
-    try {
-      const data = await safeFetch(`/admin/trackings/${id}/history`);
+    const res = await safeFetch(
+      `/admin/trackings/${trackingId}/history`
+    );
 
-      if (!data.length) {
-        historyContent.innerHTML = "Nenhum histórico encontrado.";
-        return;
-      }
+    historyContent.innerHTML = `
+      <h4>Histórico</h4>
 
-      historyContent.innerHTML = data.map(e => `
-        <div style="margin-bottom:8px;">
-          <strong>${e.type}</strong><br/>
-          <small>${e.detail || ""}</small><br/>
-          <small>${new Date(e.created_at).toLocaleString()}</small>
-        </div>
-      `).join("");
+      <p><strong>Checks:</strong> ${res.checks.length}</p>
+      <p><strong>Exceções:</strong> ${res.exceptions.length}</p>
+      <p><strong>Emails enviados:</strong> ${res.emails.length}</p>
 
-    } catch (err) {
-      historyContent.innerHTML = "Erro ao carregar histórico.";
-    }
+      <hr />
+
+      <h5>Exceções</h5>
+      <ul>
+        ${res.exceptions.map(e =>
+          `<li>${e.exception_type} (${e.severity}) – ${e.status_raw}</li>`
+        ).join("") || "<li>Nenhuma</li>"}
+      </ul>
+    `;
+  } catch (err) {
+    historyContent.innerHTML = `Erro ao carregar histórico: ${err.message}`;
   }
+}
+closeHistoryBtn.onclick = () => {
+  historyModal.classList.add("hidden");
+};
 
-  closeHistoryBtn.onclick = () =>
-    historyModal.classList.add("hidden");
 
   /* =====================================================
      START
