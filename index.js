@@ -228,14 +228,16 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
     return res.status(503).json({ error: "Supabase indisponível" });
   }
 
-  const page = parseInt(req.query.page || "1");
-  const limit = parseInt(req.query.limit || "20");
+  const page = Math.max(parseInt(req.query.page || "1"), 1);
+  const limit = Math.max(parseInt(req.query.limit || "20"), 1);
   const offset = (page - 1) * limit;
-  const email = req.query.email;
+  const email = req.query.email?.trim();
 
   let userIds = null;
 
-  // Resolver usuários por email (se houver filtro)
+  /* =====================================================
+     RESOLVE USUÁRIOS PELO EMAIL (SE FILTRAR)
+  ===================================================== */
   if (email) {
     const { data: users, error: userError } = await supabase
       .from("users")
@@ -258,10 +260,41 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
     userIds = users.map(u => u.id);
   }
 
-  // Buscar trackings SEM joins perigosos
+  /* =====================================================
+     TOTAL DE TRACKINGS (SEM RANGE)
+  ===================================================== */
+  let countQuery = supabase
+    .from("trackings")
+    .select("id", { count: "exact", head: true });
+
+  if (userIds) {
+    countQuery = countQuery.in("user_id", userIds);
+  }
+
+  const { count, error: countError } = await countQuery;
+
+  if (countError) {
+    return res.status(500).json({ error: countError.message });
+  }
+
+  /* =====================================================
+     SE OFFSET ULTRAPASSA TOTAL → PÁGINA VAZIA
+  ===================================================== */
+  if (offset >= count) {
+    return res.json({
+      page,
+      limit,
+      total: count,
+      items: []
+    });
+  }
+
+  /* =====================================================
+     BUSCA TRACKINGS DA PÁGINA
+  ===================================================== */
   let query = supabase
     .from("trackings")
-    .select("*, users(email)", { count: "exact" })
+    .select("*, users(email)")
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -269,13 +302,15 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
     query = query.in("user_id", userIds);
   }
 
-  const { data: trackings, count, error } = await query;
+  const { data: trackings, error } = await query;
 
   if (error) {
     return res.status(500).json({ error: error.message });
   }
 
-  // Contagens manuais (seguras)
+  /* =====================================================
+     CONTAGENS (EXCEÇÕES E EMAILS)
+  ===================================================== */
   const items = [];
 
   for (const t of trackings) {
@@ -283,12 +318,12 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
       await Promise.all([
         supabase
           .from("tracking_exceptions")
-          .select("*", { count: "exact", head: true })
+          .select("id", { count: "exact", head: true })
           .eq("tracking_id", t.id),
 
         supabase
           .from("tracking_emails")
-          .select("*", { count: "exact", head: true })
+          .select("id", { count: "exact", head: true })
           .eq("tracking_id", t.id)
       ]);
 
@@ -299,6 +334,9 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
     });
   }
 
+  /* =====================================================
+     RESPONSE FINAL
+  ===================================================== */
   res.json({
     page,
     limit,
@@ -306,6 +344,7 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
     items
   });
 });
+
 
 
 app.get("/admin/trackings/:id/history", adminAuth, async (req, res) => {

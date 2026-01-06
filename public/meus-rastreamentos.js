@@ -43,10 +43,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     trackings.forEach(t => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${t.tracking_code}</td>
-        <td>${t.last_status_raw || "-"}</td>
-        <td>${traduzirStatus(t.status)}</td>
-      `;
+  <td>${t.tracking_code}</td>
+  <td>
+    ${
+      t.last_checked_at
+        ? new Date(t.last_checked_at).toLocaleString("pt-BR")
+        : "-"
+    }
+  </td>
+  <td>${traduzirStatus(t.status)}</td>
+`;
       tbody.appendChild(tr);
     });
   }
