@@ -568,13 +568,14 @@ app.post("/admin/trackings/:id/exception", adminAuth, async (req, res) => {
   }
 
   const { error } = await supabase
-    .from("tracking_exceptions")
-    .insert([{
-      tracking_id: trackingId,
-      exception_type,
-      severity,
-      status_raw: tracking?.last_status_raw || "-"
-    }]);
+  .from("tracking_exceptions")
+  .insert([{
+    tracking_id: trackingId,
+    exception_type,
+    severity,
+    status_raw: tracking?.last_status_raw || "-",
+    email_sent: false
+  }]);
 
   if (error) {
     return res.status(500).json({ error: error.message });
@@ -597,39 +598,6 @@ await supabase
 
 
 
-/* =========================
-   ADMIN — SEND EMAIL
-========================= */
-app.post("/admin/trackings/:id/send-email", adminAuth, async (req, res) => {
-  if (!requireSupabase(req, res)) return;
-
-  const trackingId = req.params.id;
-
-  const { data: tracking } = await supabase
-    .from("trackings")
-    .select("tracking_code, alert_sent, last_status_raw, users(email)")
-    .eq("id", trackingId)
-    .single();
-
-  if (!tracking || tracking.alert_sent) {
-    return res.status(409).json({ error: "Email já enviado ou inválido" });
-  }
-
-  await enviarEmail({
-    to: tracking.users.email,
-    subject: "⚠️ Atenção: encomenda requer ação",
-    text: `
-Código: ${tracking.tracking_code}
-Status: ${tracking.last_status_raw || "Não informado"}
-    `
-  });
-
-  await supabase.from("trackings")
-    .update({ alert_sent: true })
-    .eq("id", trackingId);
-
-  res.json({ ok: true });
-});
 
 /* =========================
    ADMIN — DELIVERED

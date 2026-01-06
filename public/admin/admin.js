@@ -1,5 +1,16 @@
 document.addEventListener("DOMContentLoaded", () => {
   /* =====================================================
+     CONFIG
+  ===================================================== */
+
+  const ADMIN_KEY = "guardiao-admin-123";
+  const API = "";
+
+  let page = 1;
+  const limit = 20;
+  let debounceTimer = null;
+
+  /* =====================================================
      ELEMENTOS
   ===================================================== */
 
@@ -14,34 +25,29 @@ document.addEventListener("DOMContentLoaded", () => {
   const historyContent = document.getElementById("historyContent");
   const closeHistoryBtn = historyModal.querySelector(".modal-close");
 
-  let page = 1;
-  const limit = 20;
-  let debounceTimer = null;
-
-  const API = "";
-const ADMIN_KEY = "guardiao-admin-123";
+  const runMonitorBtn = document.getElementById("runMonitorBtn");
 
   /* =====================================================
      HELPERS
   ===================================================== */
 
-async function safeFetch(url, options = {}) {
-  const res = await fetch(url, {
-    credentials: "same-origin",
-    headers: {
-      "X-ADMIN-KEY": ADMIN_KEY,
-      ...(options.headers || {})
-    },
-    ...options
-  });
+  async function safeFetch(url, options = {}) {
+    const res = await fetch(url, {
+      credentials: "same-origin",
+      headers: {
+        "X-ADMIN-KEY": ADMIN_KEY,
+        ...(options.headers || {})
+      },
+      ...options
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || "Erro inesperado");
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || "Erro inesperado");
+    }
+
+    return res.json();
   }
-
-  return res.json();
-}
 
   function statusBadge(status) {
     if (status === "active") return `<span class="badge active">ATIVO</span>`;
@@ -54,31 +60,35 @@ async function safeFetch(url, options = {}) {
     rows.innerHTML = `<tr><td colspan="6">${text}</td></tr>`;
   }
 
+  async function post(path, body = {}) {
+    await safeFetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+  }
+
   /* =====================================================
-     LISTAGEM / BUSCA / PAGINAÇÃO
+     LISTAGEM
   ===================================================== */
 
   async function carregar() {
     loadingRow();
 
     const email = searchInput.value.trim();
-    const params = new URLSearchParams({
-      page,
-      limit
-    });
-
+    const params = new URLSearchParams({ page, limit });
     if (email) params.append("email", email);
 
     try {
       const data = await safeFetch(`/admin/trackings?${params.toString()}`);
 
-      if (!data.items || data.items.length === 0) {
+      pageInfo.innerText = `Página ${page}`;
+      rows.innerHTML = "";
+
+      if (!data.items.length) {
         loadingRow("Nenhum resultado encontrado.");
         return;
       }
-
-      pageInfo.innerText = `Página ${page}`;
-      rows.innerHTML = "";
 
       data.items.forEach(t => {
         const tr = document.createElement("tr");
@@ -87,45 +97,31 @@ async function safeFetch(url, options = {}) {
           <td>${statusBadge(t.status)}</td>
           <td>${t.tracking_code}</td>
           <td>${t.users?.email || "-"}</td>
-          <td>
-  ${t.last_checked_at
-    ? new Date(t.last_checked_at).toLocaleString("pt-BR")
-    : (t.last_status_raw || "-")}
-</td>
-          <td>${t.alerts_count || 0}</td>
+          <td>${t.last_checked_at
+            ? new Date(t.last_checked_at).toLocaleString("pt-BR")
+            : (t.last_status_raw || "-")
+          }</td>
+          <td>${t.exceptions_count || 0}</td>
           <td class="actions">
             <button class="primary">Verificado</button>
             <button class="warn">Exceção</button>
-            <button class="primary ${t.alert_sent ? "disabled" : ""}">
-              Email
-            </button>
             <button class="ok">Entregue</button>
             <button>Histórico</button>
           </td>
         `;
 
-        const [
-          checkBtn,
-          excBtn,
-          emailBtn,
-          delBtn,
-          histBtn
-        ] = tr.querySelectorAll("button");
+        const [checkBtn, excBtn, delBtn, histBtn] =
+          tr.querySelectorAll("button");
 
-checkBtn.onclick = () =>
-  post(`/admin/trackings/${t.id}/check`, {
-    check_type: "manual"
-  });
-
+        checkBtn.onclick = () =>
+          post(`/admin/trackings/${t.id}/check`, { check_type: "manual" })
+            .then(carregar);
 
         excBtn.onclick = () => criarExcecao(t.id);
 
-        emailBtn.onclick = () =>
-          post(`/admin/trackings/${t.id}/send-email`);
-
         delBtn.onclick = () => {
           if (confirm("Marcar como entregue?")) {
-            post(`/admin/trackings/${t.id}/delivered`);
+            post(`/admin/trackings/${t.id}/delivered`).then(carregar);
           }
         };
 
@@ -140,7 +136,7 @@ checkBtn.onclick = () =>
   }
 
   /* =====================================================
-     BUSCA COM DEBOUNCE
+     BUSCA
   ===================================================== */
 
   searchInput.addEventListener("input", () => {
@@ -150,10 +146,6 @@ checkBtn.onclick = () =>
       carregar();
     }, 400);
   });
-
-  /* =====================================================
-     PAGINAÇÃO
-  ===================================================== */
 
   prevPage.onclick = () => {
     if (page > 1) {
@@ -168,177 +160,105 @@ checkBtn.onclick = () =>
   };
 
   /* =====================================================
-     AÇÕES ADMIN (POST)
+     CRIAR EXCEÇÃO (GLOBAL + DISPARÁVEL)
   ===================================================== */
 
-  async function post(path, body = {}) {
-    try {
-      await safeFetch(path, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
-      });
-      carregar();
-    } catch (err) {
-      alert("Erro: " + err.message);
+  async function criarExcecao(trackingId) {
+    // 1️⃣ buscar templates globais
+    const templates = await safeFetch("/admin/exceptions/templates");
+
+    let msg = "Selecione a exceção:\n\n";
+    templates.forEach((t, i) => {
+      msg += `${i + 1} - ${t.exception_type} (${t.severity})\n`;
+    });
+    msg += "\n0 - Criar nova exceção";
+
+    const escolha = prompt(msg);
+    if (escolha === null) return;
+
+    let exception_type;
+    let severity;
+
+    if (escolha === "0") {
+      exception_type = prompt("Digite o nome da exceção:");
+      if (!exception_type) return;
+
+      const sev = prompt("Severidade:\n1=Baixa\n2=Média\n3=Alta");
+      severity = sev === "1" ? "low" : sev === "2" ? "medium" : sev === "3" ? "high" : null;
+      if (!severity) return alert("Severidade inválida");
+    } else {
+      const tpl = templates[parseInt(escolha) - 1];
+      if (!tpl) return alert("Opção inválida");
+      exception_type = tpl.exception_type;
+      severity = tpl.severity;
     }
+
+    await post(`/admin/trackings/${trackingId}/exception`, {
+      exception_type,
+      severity
+    });
+
+    alert("Exceção criada. Será notificada ao rodar o monitor.");
+    carregar();
   }
-
-async function criarExcecao(trackingId) {
-  // 1️⃣ Buscar histórico para reaproveitar exceções
-  let historico = [];
-  try {
-    historico = await safeFetch(
-      `/admin/trackings/${trackingId}/history`
-    );
-  } catch {
-    // se falhar, segue sem reaproveitamento
-  }
-
-const tiposExistentes = [
-  ...new Set(
-    (historico.exceptions || [])
-      .map(e => e.exception_type)
-      .filter(Boolean)
-  )
-];
-
-  let mensagem = "Selecione o tipo de exceção:\n\n";
-
-  tiposExistentes.forEach((t, i) => {
-    mensagem += `${i + 1} - ${t}\n`;
-  });
-
-  mensagem += `\n0 - Criar nova exceção`;
-
-  const escolha = prompt(mensagem);
-  if (escolha === null) return;
-
-  let exception_type;
-
-  if (escolha === "0") {
-    exception_type = prompt("Digite o nome da nova exceção:");
-    if (!exception_type) return;
-  } else {
-    const index = parseInt(escolha) - 1;
-    if (!tiposExistentes[index]) {
-      alert("Opção inválida.");
-      return;
-    }
-    exception_type = tiposExistentes[index];
-  }
-
-  // 2️⃣ Severidade controlada
-  const sev = prompt(
-    "Severidade:\n1 = Baixa\n2 = Média\n3 = Alta"
-  );
-
-  let severity;
-  if (sev === "1") severity = "low";
-  else if (sev === "2") severity = "medium";
-  else if (sev === "3") severity = "high";
-  else {
-    alert("Severidade inválida.");
-    return;
-  }
-
-  // 3️⃣ Enviar exceção
-  await post(`/admin/trackings/${trackingId}/exception`, {
-    exception_type,
-    severity
-  });
-}
-
-
 
   /* =====================================================
      HISTÓRICO
   ===================================================== */
 
-async function abrirHistorico(trackingId) {
-  try {
+  async function abrirHistorico(trackingId) {
     historyModal.classList.remove("hidden");
-    historyContent.innerHTML = "Carregando histórico…";
+    historyContent.innerHTML = "Carregando…";
 
-    const res = await safeFetch(
-      `/admin/trackings/${trackingId}/history`
-    );
+    try {
+      const res = await safeFetch(`/admin/trackings/${trackingId}/history`);
 
-    const checks = res.checks.map(c =>
-      `<li>✔️ Verificado (${new Date(c.created_at).toLocaleString("pt-BR")})</li>`
-    ).join("");
+      historyContent.innerHTML = `
+        <ul>
+          ${res.checks.map(c =>
+            `<li>✔️ Verificado (${new Date(c.created_at).toLocaleString("pt-BR")})</li>`
+          ).join("")}
 
-    const exceptions = res.exceptions.map(e =>
-      `<li>⚠️ Exceção: ${e.exception_type} (${e.severity}) — ${e.status_raw}</li>`
-    ).join("");
+          ${res.exceptions.map(e =>
+            `<li>⚠️ ${e.exception_type} (${e.severity}) — ${e.status_raw}</li>`
+          ).join("")}
 
-    const emails = res.emails.map(e =>
-      `<li>📧 Email enviado (${new Date(e.created_at).toLocaleString("pt-BR")})</li>`
-    ).join("");
-
-    historyContent.innerHTML = `
-      <h4>Linha do tempo</h4>
-      <ul>
-        ${checks || ""}
-        ${exceptions || ""}
-        ${emails || ""}
-        ${(res.checks.length === 0 &&
-   res.exceptions.length === 0 &&
-   res.emails.length === 0)
-   ? "<li>Nenhum evento.</li>"
-   : ""}
-
-      </ul>
-    `;
-  } catch (err) {
-    historyContent.innerHTML = `Erro ao carregar histórico: ${err.message}`;
+          ${res.emails.map(e =>
+            `<li>📧 Email enviado (${new Date(e.created_at).toLocaleString("pt-BR")})</li>`
+          ).join("")}
+        </ul>
+      `;
+    } catch (err) {
+      historyContent.innerText = err.message;
+    }
   }
-}
 
-
+  closeHistoryBtn.onclick = () =>
+    historyModal.classList.add("hidden");
 
   /* =====================================================
-     START
+     RODAR MONITOR
   ===================================================== */
 
+  runMonitorBtn.onclick = async () => {
+    if (!confirm("Rodar monitor agora?")) return;
+
+    runMonitorBtn.disabled = true;
+    runMonitorBtn.innerText = "Executando...";
+
+    try {
+      await fetch("/run-monitor", {
+        method: "POST",
+        headers: { "X-ADMIN-KEY": ADMIN_KEY }
+      });
+
+      alert("Monitor executado. Emails pendentes processados.");
+    } finally {
+      runMonitorBtn.disabled = false;
+      runMonitorBtn.innerText = "🚨 Rodar monitor";
+      carregar();
+    }
+  };
+
   carregar();
-});
-
-
-if (closeHistoryBtn && historyModal) {
-  closeHistoryBtn.addEventListener("click", () => {
-    historyModal.classList.add("hidden");
-  });
-}
-
-
-const runMonitorBtn = document.getElementById("runMonitorBtn");
-
-runMonitorBtn?.addEventListener("click", async () => {
-  if (!confirm("Deseja rodar o monitor agora?")) return;
-
-  runMonitorBtn.disabled = true;
-  runMonitorBtn.innerText = "Executando monitor...";
-
-  try {
-    const res = await fetch("/run-monitor", {
-      method: "POST",
-      headers: {
-        "X-ADMIN-KEY": "guardiao-admin-123"
-      }
-    });
-
-    if (!res.ok) throw new Error("Erro ao executar monitor");
-
-    alert("Monitor executado com sucesso.\nExceções novas foram processadas.");
-
-  } catch (err) {
-    alert("Erro ao executar monitor.");
-    console.error(err);
-  } finally {
-    runMonitorBtn.disabled = false;
-    runMonitorBtn.innerText = "🚨 Rodar monitor (exceções)";
-  }
 });
