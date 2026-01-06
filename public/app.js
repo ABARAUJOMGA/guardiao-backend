@@ -145,24 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   
-  const successPlanText = document.getElementById("successPlanText");
-const upgradeHint = document.getElementById("upgradeHint");
-
-const isEssential = user.plan === "essential";
-
-successPlanText.innerText = isEssential
-  ? "Plano Essencial ativo (até 50 envios)."
-  : "Plano gratuito ativo (1 envio).";
-
-if (isEssential) {
-  goToPlanBtn.classList.add("hidden");
-  upgradeHint.classList.add("hidden");
-} else {
-  goToPlanBtn.classList.remove("hidden");
-  upgradeHint.classList.remove("hidden");
-}
-
-  
+ 
   /* =====================================================
      CONFIRMAR EMAIL (CRIA OU ACESSA)
   ===================================================== */
@@ -198,6 +181,24 @@ if (isEssential) {
 
         identifyStep.classList.add("hidden");
         successStep.classList.remove("hidden");
+
+        const successPlanText = document.getElementById("successPlanText");
+const upgradeHint = document.getElementById("upgradeHint");
+
+const isEssential = user.plan === "essential";
+
+successPlanText.innerText = isEssential
+  ? "Plano Essencial ativo (até 50 envios)."
+  : "Plano gratuito ativo (1 envio).";
+
+if (isEssential) {
+  goToPlanBtn.classList.add("hidden");
+  upgradeHint.classList.add("hidden");
+} else {
+  goToPlanBtn.classList.remove("hidden");
+  upgradeHint.classList.remove("hidden");
+}
+
 
         await atualizarStatusPlano(user);
         pendingTrackingCode = null;
