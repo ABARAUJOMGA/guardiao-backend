@@ -2,8 +2,9 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createClient } from "@supabase/supabase-js";
 import rateLimit from "express-rate-limit";
+import { supabase } from "./supabaseClient.js";
+
 
 import { rodarMonitoramento } from "./monitor.js";
 import { enviarEmail } from "./mailer.js";
@@ -114,20 +115,6 @@ app.use("/admin", adminLimiter);
 ========================= */
 app.use(express.static(path.join(__dirname, "public")));
 
-/* =========================
-   SUPABASE (RESILIENTE)
-========================= */
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-
-let supabase = null;
-
-if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  console.log("✅ Supabase conectado");
-} else {
-  console.warn("⚠️ Supabase NÃO configurado (ambiente local)");
-}
 
 /* =========================
    GUARD GLOBAL

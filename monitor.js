@@ -1,24 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./supabaseClient.js";
 import { enviarEmail } from "./mailer.js";
-import { ENV } from "./env.js";
-
-/* =====================================================
-   CONEXÃO SUPABASE
-===================================================== */
-
-let supabase = null;
-
-if (ENV.SUPABASE_URL && ENV.SUPABASE_KEY) {
-  supabase = createClient(
-    ENV.SUPABASE_URL,
-    ENV.SUPABASE_KEY
-  );
-  console.log("✅ Supabase conectado");
-} else {
-  console.warn("⚠️ Supabase desativado (ambiente local)");
-}
-
-export { supabase };
 
 /* =====================================================
    SIMULAÇÃO CORREIOS (MVP)
@@ -113,7 +94,7 @@ export async function rodarMonitoramento() {
       if (!regraEncontrada) continue;
 
       /* -------------------------------------------------
-         3.1 Criar exceção (evento)
+         3.1 Criar exceção (EVENTO)
       ------------------------------------------------- */
 
       const { data: exception, error: exceptionError } = await supabase
@@ -146,7 +127,7 @@ export async function rodarMonitoramento() {
       if (!user?.email) continue;
 
       /* -------------------------------------------------
-         3.3 Enviar email (1 por exceção)
+         3.3 Enviar email (1 POR EXCEÇÃO)
       ------------------------------------------------- */
 
       try {
@@ -165,7 +146,7 @@ export async function rodarMonitoramento() {
           .eq("id", exception.id);
 
         console.log(
-          `📨 Email enviado para ${user.email} — tracking ${tracking.tracking_code}`
+          `📨 Email enviado para ${user.email} — ${tracking.tracking_code}`
         );
 
       } catch (emailErr) {
@@ -173,7 +154,7 @@ export async function rodarMonitoramento() {
       }
 
       /* -------------------------------------------------
-         3.4 Atualizar tracking
+         3.4 Atualizar tracking principal
       ------------------------------------------------- */
 
       await supabase
