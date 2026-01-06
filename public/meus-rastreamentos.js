@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
   const PLAN_LINK = "https://mpago.li/1XoZc56";
 
   const tbody = document.getElementById("trackingsBody");
@@ -9,6 +9,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   const emailInput = document.getElementById("emailInput");
   const loadByEmail = document.getElementById("loadByEmail");
 
+  const statusFilter = document.getElementById("statusFilter");
+  const prevPageBtn = document.getElementById("prevPage");
+  const nextPageBtn = document.getElementById("nextPage");
+  const pageInfo = document.getElementById("pageInfo");
+
+  let userId = null;
+  let userPlan = "free";
+  let page = 1;
+  const limit = 10;
+  let status = "";
+
   function traduzirStatus(status) {
     return {
       active: "ATIVA",
@@ -17,84 +28,125 @@ document.addEventListener("DOMContentLoaded", async () => {
     }[status] || status.toUpperCase();
   }
 
-  async function carregarPorUser(user) {
-    const res = await fetch(`/trackings/${user.id}`);
-    const trackings = await res.json();
+  async function identificarPorEmail(email) {
+    const res = await fetch("/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
 
-    const isEssential = user.plan === "essential";
-    const limit = isEssential ? 50 : 1;
+    if (!res.ok) throw new Error("Erro ao identificar usuário");
 
-    const activeCount = Array.isArray(trackings)
-      ? trackings.filter(t => t.status === "active").length
-      : 0;
+    const user = await res.json();
+
+    userId = user.id;
+    userPlan = user.plan;
+
+    localStorage.setItem("guardiao_user_id", userId);
+    localStorage.setItem("guardiao_user_plan", userPlan);
+
+    return user;
+  }
+
+  async function carregarRastreios() {
+    if (!userId) return;
+
+    tbody.innerHTML =
+      "<tr><td colspan='3'>Carregando...</td></tr>";
+
+    const params = new URLSearchParams({
+      page,
+      limit
+    });
+
+    if (status) params.append("status", status);
+
+    const res = await fetch(
+      `/users/${userId}/trackings?${params.toString()}`
+    );
+
+    if (!res.ok) {
+      tbody.innerHTML =
+        "<tr><td colspan='3'>Erro ao carregar rastreamentos.</td></tr>";
+      return;
+    }
+
+    const data = await res.json();
+
+    const isEssential = userPlan === "essential";
+    const max = isEssential ? 50 : 1;
 
     planInfo.innerText =
       `Plano atual: ${isEssential ? "Essencial" : "Gratuito"} — ` +
-      `Uso: ${activeCount} de ${limit}`;
+      `Mostrando ${data.items.length} de ${data.total} rastreios`;
 
     tbody.innerHTML = "";
 
-    if (!trackings.length) {
+    if (!data.items.length) {
       tbody.innerHTML =
         "<tr><td colspan='3'>Nenhum rastreamento encontrado.</td></tr>";
       return;
     }
 
-    trackings.forEach(t => {
+    data.items.forEach(t => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-  <td>${t.tracking_code}</td>
-  <td>
-    ${
-      t.last_checked_at
-        ? new Date(t.last_checked_at).toLocaleString("pt-BR")
-        : "-"
-    }
-  </td>
-  <td>${traduzirStatus(t.status)}</td>
-`;
+        <td>${t.tracking_code}</td>
+        <td>${
+          t.last_checked_at
+            ? new Date(t.last_checked_at).toLocaleString("pt-BR")
+            : "-"
+        }</td>
+        <td>${traduzirStatus(t.status)}</td>
+      `;
       tbody.appendChild(tr);
     });
+
+    pageInfo.innerText = `Página ${page}`;
+    prevPageBtn.disabled = page === 1;
+    nextPageBtn.disabled = page * limit >= data.total;
   }
-
-  async function identificarPorEmail(email) {
-    const user = await fetch("/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email })
-    }).then(r => r.json());
-
-    localStorage.setItem("guardiao_user_id", user.id);
-    localStorage.setItem("guardiao_user_plan", user.plan);
-
-    return user;
-  }
-
-  // Sempre permitir troca de email
-  emailGate.classList.remove("hidden");
 
   loadByEmail.onclick = async () => {
     const email = emailInput.value.trim();
     if (!email) return alert("Informe o email.");
 
-    try {
-      tbody.innerHTML =
-        "<tr><td colspan='3'>Carregando...</td></tr>";
+    page = 1;
 
-      const user = await identificarPorEmail(email);
-      await carregarPorUser(user);
+    try {
+      await identificarPorEmail(email);
+      await carregarRastreios();
     } catch {
       tbody.innerHTML =
         "<tr><td colspan='3'>Erro ao carregar rastreamentos.</td></tr>";
     }
   };
 
-  // Carrega automaticamente se já houver usuário salvo
+  statusFilter.onchange = () => {
+    status = statusFilter.value;
+    page = 1;
+    carregarRastreios();
+  };
+
+  prevPageBtn.onclick = () => {
+    if (page > 1) {
+      page--;
+      carregarRastreios();
+    }
+  };
+
+  nextPageBtn.onclick = () => {
+    page++;
+    carregarRastreios();
+  };
+
   const storedId = localStorage.getItem("guardiao_user_id");
   const storedPlan = localStorage.getItem("guardiao_user_plan");
 
-  if (storedId && storedPlan) {
-    carregarPorUser({ id: storedId, plan: storedPlan });
+  if (storedId) {
+    userId = storedId;
+    userPlan = storedPlan || "free";
+    carregarRastreios();
   }
 
   upgradeBtn.onclick = () => {

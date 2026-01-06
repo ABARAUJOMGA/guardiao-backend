@@ -39,6 +39,32 @@ app.use((req, res, next) => {
   next();
 });
 
+
+
+async function validarPlanoUsuario(user) {
+  if (
+    user.plan === "essential" &&
+    user.plan_paid_until &&
+    new Date(user.plan_paid_until) < new Date()
+  ) {
+    await supabase
+      .from("users")
+      .update({
+        plan: "free",
+        plan_paid_until: null
+      })
+      .eq("id", user.id);
+
+    return {
+      ...user,
+      plan: "free"
+    };
+  }
+
+  return user;
+}
+
+
 /* =========================
    MIDDLEWARES
 ========================= */
@@ -164,26 +190,36 @@ app.post("/trackings", async (req, res) => {
     return res.status(400).json({ error: "Dados obrigatórios" });
   }
 
-  const { data: user } = await supabase
+  // 1️⃣ Busca usuário completo
+  const { data: user, error: userErr } = await supabase
     .from("users")
-    .select("plan")
+    .select("*")
     .eq("id", user_id)
     .single();
 
-  const limit = user?.plan === "essential" ? 50 : 1;
+  if (userErr || !user) {
+    return res.status(404).json({ error: "Usuário não encontrado" });
+  }
+
+  // 2️⃣ Valida plano (downgrade automático)
+  const userValidado = await validarPlanoUsuario(user);
+
+  // 3️⃣ Define limite
+  const limite = userValidado.plan === "essential" ? 50 : 1;
 
   const { count } = await supabase
     .from("trackings")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user_id)
-    .eq("status", "active");
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userValidado.id)
+    .neq("status", "delivered");
 
-  if (count >= limit) {
+  if (count >= limite) {
     return res.status(403).json({
-      error: `Seu plano permite até ${limit} monitoramentos ativos`
+      error: "Limite de rastreios atingido para seu plano"
     });
   }
 
+  // 4️⃣ Cria tracking
   const { data, error } = await supabase
     .from("trackings")
     .insert([{ user_id, tracking_code, status: "active" }])
@@ -191,36 +227,59 @@ app.post("/trackings", async (req, res) => {
     .single();
 
   if (error) return res.status(400).json({ error: error.message });
+
   res.json(data);
 });
+
 
 /* =========================
    TRACKINGS (LISTAR DO USUÁRIO)
 ========================= */
-app.get("/trackings/:userId", async (req, res) => {
+app.get("/users/:id/trackings", async (req, res) => {
   if (!supabase) {
     return res.status(503).json({ error: "Supabase indisponível" });
   }
 
-  const { userId } = req.params;
+  const userId = req.params.id;
+  const page = Math.max(parseInt(req.query.page || "1"), 1);
+  const limit = Math.max(parseInt(req.query.limit || "10"), 1);
+  const status = req.query.status;
+  const offset = (page - 1) * limit;
 
-  const { data, error } = await supabase
+  const { data: user } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .single();
+
+  const userValidado = await validarPlanoUsuario(user);
+
+  let query = supabase
     .from("trackings")
-    .select(`
-      id,
-      tracking_code,
-      status,
-      last_checked_at,
-      created_at
-    `)
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+    .select(
+      "id, tracking_code, status, last_checked_at, created_at",
+      { count: "exact" }
+    )
+    .eq("user_id", userValidado.id)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (status) {
+    query = query.eq("status", status);
+  }
+
+  const { data, count, error } = await query;
 
   if (error) {
     return res.status(500).json({ error: error.message });
   }
 
-  res.json(data || []);
+  res.json({
+    page,
+    limit,
+    total: count,
+    items: data || []
+  });
 });
 
 
@@ -458,6 +517,51 @@ app.post("/admin/trackings/:id/check", adminAuth, async (req, res) => {
 
   res.json({ ok: true });
 });
+
+
+/* =========================
+   ADMIN — ATIVAR PLANO
+========================= */
+app.post("/admin/users/:id/activate-plan", adminAuth, async (req, res) => {
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase indisponível" });
+  }
+
+  const userId = req.params.id;
+  const { paid_at } = req.body;
+
+  if (!paid_at) {
+    return res.status(400).json({ error: "paid_at é obrigatório" });
+  }
+
+  const paidAt = new Date(paid_at);
+  if (isNaN(paidAt.getTime())) {
+    return res.status(400).json({ error: "Data inválida" });
+  }
+
+  const paidUntil = new Date(paidAt);
+  paidUntil.setMonth(paidUntil.getMonth() + 1);
+
+  const { error } = await supabase
+    .from("users")
+    .update({
+      plan: "essential",
+      plan_activated_at: paidAt.toISOString(),
+      plan_paid_until: paidUntil.toISOString()
+    })
+    .eq("id", userId);
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json({
+    success: true,
+    plan: "essential",
+    paid_until: paidUntil
+  });
+});
+
 
 
 /* =========================
