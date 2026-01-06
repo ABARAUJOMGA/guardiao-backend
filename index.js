@@ -372,18 +372,20 @@ app.get("/admin/trackings", adminAuth, async (req, res) => {
   const items = [];
 
   for (const t of trackings) {
-    const [{ count: exceptionsCount }, { count: emailsCount }] =
-      await Promise.all([
-        supabase
-          .from("tracking_exceptions")
-          .select("id", { count: "exact", head: true })
-          .eq("tracking_id", t.id),
+const [{ count: exceptionsCount }, { count: emailsCount }] =
+  await Promise.all([
+    supabase
+      .from("tracking_exceptions")
+      .select("id", { count: "exact", head: true })
+      .eq("tracking_id", t.id),
 
-        supabase
-          .from("tracking_emails")
-          .select("id", { count: "exact", head: true })
-          .eq("tracking_id", t.id)
-      ]);
+    supabase
+      .from("tracking_exceptions")
+      .select("id", { count: "exact", head: true })
+      .eq("tracking_id", t.id)
+      .eq("email_sent", true)
+  ]);
+
 
     items.push({
       ...t,
@@ -412,25 +414,25 @@ app.get("/admin/trackings/:id/history", adminAuth, async (req, res) => {
 
   const trackingId = req.params.id;
 
-  const [checks, exceptions, emails] = await Promise.all([
-    supabase
-      .from("tracking_checks")
-      .select("*")
-      .eq("tracking_id", trackingId)
-      .order("created_at", { ascending: false }),
+const [checks, exceptions] = await Promise.all([
+  supabase
+    .from("tracking_checks")
+    .select("*")
+    .eq("tracking_id", trackingId)
+    .order("created_at", { ascending: false }),
 
-    supabase
-      .from("tracking_exceptions")
-      .select("*")
-      .eq("tracking_id", trackingId)
-      .order("created_at", { ascending: false }),
+  supabase
+    .from("tracking_exceptions")
+    .select("*")
+    .eq("tracking_id", trackingId)
+    .order("created_at", { ascending: false })
+]);
 
-    supabase
-      .from("tracking_emails")
-      .select("*")
-      .eq("tracking_id", trackingId)
-      .order("created_at", { ascending: false })
-  ]);
+res.json({
+  checks: checks.data || [],
+  exceptions: exceptions.data || []
+});
+
 
   res.json({
     checks: checks.data || [],

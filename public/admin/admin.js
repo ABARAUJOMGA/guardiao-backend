@@ -223,9 +223,11 @@ document.addEventListener("DOMContentLoaded", () => {
             `<li>⚠️ ${e.exception_type} (${e.severity}) — ${e.status_raw}</li>`
           ).join("")}
 
-          ${res.emails.map(e =>
-            `<li>📧 Email enviado (${new Date(e.created_at).toLocaleString("pt-BR")})</li>`
-          ).join("")}
+          ${res.exceptions
+  .filter(e => e.email_sent)
+  .map(e =>
+    `<li>📧 Email enviado — ${e.exception_type} (${new Date(e.created_at).toLocaleString("pt-BR")})</li>`
+  ).join("")}
         </ul>
       `;
     } catch (err) {

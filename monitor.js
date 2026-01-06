@@ -94,6 +94,7 @@ export async function rodarMonitoramento() {
         .update({ email_sent: true })
         .eq("id", exc.id);
 
+
       console.log(
         `📨 Email enviado — ${exc.tracking.tracking_code} (${exc.exception_type})`
       );
