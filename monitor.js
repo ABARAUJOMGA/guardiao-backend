@@ -3,7 +3,7 @@ import { enviarEmail } from "./mailer.js";
 import { ENV } from "./env.js";
 
 /* =====================================================
-   CONEXÃO SUPABASE (RESILIENTE)
+   CONEXÃO SUPABASE
 ===================================================== */
 
 let supabase = null;
@@ -25,7 +25,31 @@ export { supabase };
 ===================================================== */
 
 function consultarCorreiosSimulado(trackingCode) {
+  // MVP: status fixo para teste
   return "AGUARDANDO RETIRADA";
+}
+
+/* =====================================================
+   TEXTO DO EMAIL (MVP)
+===================================================== */
+
+function montarEmailExcecao({ trackingCode, statusAtual }) {
+  return `
+Olá,
+
+Detectamos uma atualização fora do normal no seu envio.
+
+Código de rastreamento: ${trackingCode}
+Status atual: ${statusAtual}
+
+Você está recebendo este aviso para agir antes que o problema
+impacte seu cliente.
+
+Acompanhe seus rastreamentos em:
+https://guardiaorastreamento.com.br/meus-rastreamentos.html
+
+— Guardião de Rastreamento
+`.trim();
 }
 
 /* =====================================================
@@ -39,6 +63,10 @@ export async function rodarMonitoramento() {
   }
 
   console.log("🟢 Iniciando job de monitoramento");
+
+  /* -----------------------------------------------------
+     1. Buscar trackings ativos
+  ----------------------------------------------------- */
 
   const { data: trackings, error: trackingError } = await supabase
     .from("trackings")
@@ -54,6 +82,10 @@ export async function rodarMonitoramento() {
   console.log(`🔎 Trackings ativos encontrados: ${trackings.length}`);
   if (!trackings.length) return;
 
+  /* -----------------------------------------------------
+     2. Buscar regras de exceção
+  ----------------------------------------------------- */
+
   const { data: regras, error: regrasError } = await supabase
     .from("exception_rules")
     .select("*")
@@ -64,16 +96,46 @@ export async function rodarMonitoramento() {
     return;
   }
 
+  /* -----------------------------------------------------
+     3. Processar cada tracking
+  ----------------------------------------------------- */
+
   for (const tracking of trackings) {
     try {
-      if (!tracking.user_id || tracking.alert_sent) continue;
+      if (!tracking.user_id) continue;
 
       const statusAtual = consultarCorreiosSimulado(tracking.tracking_code);
 
       const regraEncontrada = regras.find(r =>
         statusAtual.includes(r.status_match)
       );
+
       if (!regraEncontrada) continue;
+
+      /* -------------------------------------------------
+         3.1 Criar exceção (evento)
+      ------------------------------------------------- */
+
+      const { data: exception, error: exceptionError } = await supabase
+        .from("tracking_exceptions")
+        .insert({
+          tracking_id: tracking.id,
+          exception_type: regraEncontrada.name || "generic",
+          severity: regraEncontrada.severity || "medium",
+          status_raw: statusAtual,
+          email_sent: false
+        })
+        .select()
+        .single();
+
+      if (exceptionError) {
+        console.error("💥 Erro ao criar exceção:", exceptionError);
+        continue;
+      }
+
+      /* -------------------------------------------------
+         3.2 Buscar email do usuário
+      ------------------------------------------------- */
 
       const { data: user } = await supabase
         .from("users")
@@ -83,17 +145,42 @@ export async function rodarMonitoramento() {
 
       if (!user?.email) continue;
 
-      await enviarEmail({
-        to: user.email,
-        subject: "⚠️ Problema detectado na entrega",
-        text: `Status atual: ${statusAtual}`
-      });
+      /* -------------------------------------------------
+         3.3 Enviar email (1 por exceção)
+      ------------------------------------------------- */
+
+      try {
+        await enviarEmail({
+          to: user.email,
+          subject: `⚠️ Problema detectado no envio ${tracking.tracking_code}`,
+          text: montarEmailExcecao({
+            trackingCode: tracking.tracking_code,
+            statusAtual
+          })
+        });
+
+        await supabase
+          .from("tracking_exceptions")
+          .update({ email_sent: true })
+          .eq("id", exception.id);
+
+        console.log(
+          `📨 Email enviado para ${user.email} — tracking ${tracking.tracking_code}`
+        );
+
+      } catch (emailErr) {
+        console.error("📭 Falha ao enviar email:", emailErr);
+      }
+
+      /* -------------------------------------------------
+         3.4 Atualizar tracking
+      ------------------------------------------------- */
 
       await supabase
         .from("trackings")
         .update({
           status: "exception",
-          alert_sent: true,
+          flow_stage: "exception",
           last_status_raw: statusAtual,
           last_checked_at: new Date().toISOString()
         })
