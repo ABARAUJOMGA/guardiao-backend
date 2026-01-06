@@ -182,20 +182,28 @@ document.addEventListener("DOMContentLoaded", () => {
         identifyStep.classList.add("hidden");
         successStep.classList.remove("hidden");
 
-        const successPlanText = document.getElementById("successPlanText");
+   const successPlanText = document.getElementById("successPlanText");
 const upgradeHint = document.getElementById("upgradeHint");
 
 const isEssential = user.plan === "essential";
 
-successPlanText.innerText = isEssential
-  ? "Plano Essencial ativo (até 50 envios)."
-  : "Plano gratuito ativo (1 envio).";
-
 if (isEssential) {
+  successPlanText.innerText =
+    "Monitoramento adicionado com sucesso. Seu Plano Essencial continua ativo.";
+
   goToPlanBtn.classList.add("hidden");
-  upgradeHint.classList.add("hidden");
+
+  upgradeHint.innerText =
+    "Precisa monitorar ainda mais envios? Fale com o suporte para um plano personalizado.";
+  upgradeHint.classList.remove("hidden");
 } else {
+  successPlanText.innerText =
+    "Plano gratuito ativo (1 envio).";
+
   goToPlanBtn.classList.remove("hidden");
+
+  upgradeHint.innerText =
+    "Após o pagamento, a ativação ocorre em até 24h úteis.";
   upgradeHint.classList.remove("hidden");
 }
 
