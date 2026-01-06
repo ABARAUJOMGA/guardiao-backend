@@ -73,12 +73,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const data = await res.json();
 
-    const isEssential = userPlan === "essential";
-    const max = isEssential ? 50 : 1;
+planInfo.innerText =
+  `Plano atual: ${isEssential ? "Essencial" : "Gratuito"} — ` +
+  `Uso atual: ${data.total} de ${max} envios`;
 
-    planInfo.innerText =
-      `Plano atual: ${isEssential ? "Essencial" : "Gratuito"} — ` +
-      `Mostrando ${data.items.length} de ${data.total} rastreios`;
 
     tbody.innerHTML = "";
 
