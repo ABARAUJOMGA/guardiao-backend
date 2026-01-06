@@ -68,6 +68,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const isEssential = user.plan === "essential";
     const limite = isEssential ? 50 : 1;
 
+    if (isEssential && subscribePlanBtn) {
+  subscribePlanBtn.classList.add("hidden");
+}
+
+
     let trackings = [];
     try {
       const res = await fetch(`/trackings/${user.id}`);
@@ -193,8 +198,9 @@ if (isEssential) {
 
   goToPlanBtn.classList.add("hidden");
 
-  upgradeHint.innerText =
-    "Precisa monitorar ainda mais envios? Fale com o suporte para um plano personalizado.";
+upgradeHint.innerHTML =
+  'Precisa monitorar ainda mais envios? <a href="#" id="supportLink">Fale com o suporte</a> para um plano personalizado.';
+
   upgradeHint.classList.remove("hidden");
 } else {
   successPlanText.innerText =
@@ -206,6 +212,15 @@ if (isEssential) {
     "Após o pagamento, a ativação ocorre em até 24h úteis.";
   upgradeHint.classList.remove("hidden");
 }
+
+
+setTimeout(() => {
+  const supportLink = document.getElementById("supportLink");
+  supportLink?.addEventListener("click", e => {
+    e.preventDefault();
+    supportModal.classList.remove("hidden");
+  });
+}, 0);
 
 
         await atualizarStatusPlano(user);
