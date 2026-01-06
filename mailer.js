@@ -8,11 +8,23 @@ if (process.env.RESEND_API_KEY) {
   console.warn("⚠️ RESEND_API_KEY ausente — emails desativados");
 }
 
-export async function enviarEmail(params) {
+const FROM_EMAIL = "Guardião <alertas@guardiaorastreamento.com.br>";
+
+export async function enviarEmail({ to, subject, text }) {
   if (!resend) {
     console.log("📭 Email ignorado (ambiente local)");
     return;
   }
 
-  return resend.emails.send(params);
+  try {
+    return await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject,
+      text
+    });
+  } catch (err) {
+    console.error("💥 Erro ao enviar email via Resend:", err);
+    throw err;
+  }
 }
