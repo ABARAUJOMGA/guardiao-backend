@@ -486,13 +486,16 @@ app.post("/admin/trackings/:id/exception", adminAuth, async (req, res) => {
   }
 
   // Atualiza tracking principal
-  await supabase
-    .from("trackings")
-    .update({
-      status: "exception",
-      flow_stage: "exception"
-    })
-    .eq("id", trackingId);
+// Atualiza tracking principal
+await supabase
+  .from("trackings")
+  .update({
+    status: "exception",
+    flow_stage: "exception",
+    last_checked_at: new Date().toISOString()
+  })
+  .eq("id", trackingId);
+
 
   res.json({ ok: true });
 });
