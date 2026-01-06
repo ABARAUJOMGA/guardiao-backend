@@ -197,20 +197,32 @@ app.post("/trackings", async (req, res) => {
 /* =========================
    TRACKINGS (LISTAR DO USUÁRIO)
 ========================= */
-app.get("/trackings/:user_id", async (req, res) => {
-  if (!requireSupabase(req, res)) return;
+app.get("/trackings/:userId", async (req, res) => {
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase indisponível" });
+  }
 
-  const { user_id } = req.params;
+  const { userId } = req.params;
 
   const { data, error } = await supabase
     .from("trackings")
-    .select("*")
-    .eq("user_id", user_id)
+    .select(`
+      id,
+      tracking_code,
+      status,
+      last_checked_at,
+      created_at
+    `)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
-  if (error) return res.status(400).json({ error: error.message });
-  res.json(data);
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  res.json(data || []);
 });
+
 
 /* =========================
    JOB MANUAL
