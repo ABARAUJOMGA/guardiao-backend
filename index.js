@@ -711,3 +711,100 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`🚀 Guardião rodando na porta ${PORT}`);
 });
+
+
+/* =========================
+   Acompanhar pagantes
+   
+   ========================= */
+app.get("/admin/users", adminAuth, async (req, res) => {
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase indisponível" });
+  }
+
+  const { data, error } = await supabase
+    .from("users")
+    .select(`
+      id,
+      email,
+      plan,
+      plan_paid_until,
+      created_at,
+      trackings(id)
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  const users = data.map(u => {
+    const now = new Date();
+    const paidUntil = u.plan_paid_until
+      ? new Date(u.plan_paid_until)
+      : null;
+
+    const isPaid =
+      u.plan === "essential" &&
+      paidUntil &&
+      paidUntil >= now;
+
+    return {
+      id: u.id,
+      email: u.email,
+      plan: u.plan,
+      paid_until: u.plan_paid_until,
+      status: isPaid ? "ATIVO" : "VENCIDO",
+      trackings_count: u.trackings?.length || 0
+    };
+  });
+
+  res.json(users);
+});
+
+
+app.get("/admin/users", adminAuth, async (req, res) => {
+  if (!supabase) {
+    return res.status(503).json({ error: "Supabase indisponível" });
+  }
+
+  const { data, error } = await supabase
+    .from("users")
+    .select(`
+      id,
+      email,
+      plan,
+      plan_paid_until,
+      created_at,
+      trackings(id)
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return res.status(500).json({ error: error.message });
+  }
+
+  const now = new Date();
+
+  const users = data.map(u => {
+    const paidUntil = u.plan_paid_until
+      ? new Date(u.plan_paid_until)
+      : null;
+
+    const isActive =
+      u.plan === "essential" &&
+      paidUntil &&
+      paidUntil >= now;
+
+    return {
+      id: u.id,
+      email: u.email,
+      plan: u.plan,
+      paid_until: u.plan_paid_until,
+      status: isActive ? "ATIVO" : "VENCIDO",
+      trackings_count: u.trackings?.length || 0
+    };
+  });
+
+  res.json(users);
+});
