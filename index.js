@@ -468,14 +468,6 @@ app.get("/admin/exceptions/templates", adminAuth, async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
-const allowedSeverities = ["low", "medium", "high"];
-
-if (!allowedSeverities.includes(severity)) {
-  return res.status(400).json({
-    error: "Severidade inválida"
-  });
-}
-
 
   // remove duplicadas
   const unique = [];
@@ -693,76 +685,12 @@ ${payload.message}
   res.json({ ok: true });
 });
 
+
+
+
 /* =========================
-   FRONTEND FALLBACK (SEM PEGAR ADMIN)
+   ADMIN — USERS (PAGANTES)
 ========================= */
-app.get("*", (req, res) => {
-  if (req.path.startsWith("/admin")) {
-    return res.status(404).end();
-  }
-
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-/* =========================
-   START SERVER
-========================= */
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`🚀 Guardião rodando na porta ${PORT}`);
-});
-
-
-/* =========================
-   Acompanhar pagantes
-   
-   ========================= */
-app.get("/admin/users", adminAuth, async (req, res) => {
-  if (!supabase) {
-    return res.status(503).json({ error: "Supabase indisponível" });
-  }
-
-  const { data, error } = await supabase
-    .from("users")
-    .select(`
-      id,
-      email,
-      plan,
-      plan_paid_until,
-      created_at,
-      trackings(id)
-    `)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  const users = data.map(u => {
-    const now = new Date();
-    const paidUntil = u.plan_paid_until
-      ? new Date(u.plan_paid_until)
-      : null;
-
-    const isPaid =
-      u.plan === "essential" &&
-      paidUntil &&
-      paidUntil >= now;
-
-    return {
-      id: u.id,
-      email: u.email,
-      plan: u.plan,
-      paid_until: u.plan_paid_until,
-      status: isPaid ? "ATIVO" : "VENCIDO",
-      trackings_count: u.trackings?.length || 0
-    };
-  });
-
-  res.json(users);
-});
-
-
 app.get("/admin/users", adminAuth, async (req, res) => {
   if (!supabase) {
     return res.status(503).json({ error: "Supabase indisponível" });
@@ -808,3 +736,24 @@ app.get("/admin/users", adminAuth, async (req, res) => {
 
   res.json(users);
 });
+
+/* =========================
+   FRONTEND FALLBACK (SEM PEGAR ADMIN)
+========================= */
+app.get("*", (req, res) => {
+  if (req.path.startsWith("/admin")) {
+    return res.status(404).end();
+  }
+
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+/* =========================
+   START SERVER
+========================= */
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`🚀 Guardião rodando na porta ${PORT}`);
+});
+
+
