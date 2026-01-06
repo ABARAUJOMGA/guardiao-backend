@@ -312,3 +312,33 @@ if (closeHistoryBtn && historyModal) {
     historyModal.classList.add("hidden");
   });
 }
+
+
+const runMonitorBtn = document.getElementById("runMonitorBtn");
+
+runMonitorBtn?.addEventListener("click", async () => {
+  if (!confirm("Deseja rodar o monitor agora?")) return;
+
+  runMonitorBtn.disabled = true;
+  runMonitorBtn.innerText = "Executando monitor...";
+
+  try {
+    const res = await fetch("/run-monitor", {
+      method: "POST",
+      headers: {
+        "X-ADMIN-KEY": "guardiao-admin-123"
+      }
+    });
+
+    if (!res.ok) throw new Error("Erro ao executar monitor");
+
+    alert("Monitor executado com sucesso.\nExceções novas foram processadas.");
+
+  } catch (err) {
+    alert("Erro ao executar monitor.");
+    console.error(err);
+  } finally {
+    runMonitorBtn.disabled = false;
+    runMonitorBtn.innerText = "🚨 Rodar monitor (exceções)";
+  }
+});
