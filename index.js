@@ -65,6 +65,37 @@ async function validarPlanoUsuario(user) {
   return user;
 }
 
+/* =========================
+   WEBHOOK — NOVO USUÁRIO (SUPABASE)
+========================= */
+app.post("/notify-new-user", async (req, res) => {
+  try {
+    const { record } = req.body;
+
+    if (!record || !record.email) {
+      return res.status(400).json({ error: "Payload inválido" });
+    }
+
+    await enviarEmail({
+      to: "atendimento@abaraujo.com",
+      subject: "👤 Novo usuário cadastrado",
+      text: `
+Novo usuário criado no sistema.
+
+ID: ${record.id}
+Email: ${record.email}
+Criado em: ${record.created_at || "não informado"}
+      `
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro notify-new-user:", err);
+    res.status(500).json({ error: "email_failed" });
+  }
+});
+
+
 
 /* =========================
    MIDDLEWARES
