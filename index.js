@@ -65,6 +65,13 @@ async function validarPlanoUsuario(user) {
   return user;
 }
 
+
+
+/* =========================
+   MIDDLEWARES
+========================= */
+app.use(express.json());
+
 /* =========================
    WEBHOOK — NOVO USUÁRIO (SUPABASE)
 ========================= */
@@ -95,12 +102,6 @@ Criado em: ${record.created_at || "não informado"}
   }
 });
 
-
-
-/* =========================
-   MIDDLEWARES
-========================= */
-app.use(express.json());
 
 
 const allowedOrigins = [
